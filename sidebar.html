@@ -1,0 +1,226 @@
+<html><head>
+
+
+     <meta charset="utf-8">
+     <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons.css">
+     <link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+     <style type="text/css">
+        body {
+          font-family: 'Roboto', sans-serif;
+        }
+        .top-logo {margin-bottom:50px;}
+        .oclc-table { padding-left: 20px; padding-bottom:5px; }
+        .oclc-table th,td {
+            border-bottom: 0px;
+            padding-bottom: 0px;
+            padding-top: 3px; 
+            font-weight: normal;
+            text-align: left;
+        }
+        .white { background-color: white}
+
+     </style>
+
+</head>
+<body bgcolor="#44546D">
+      <div class="sidebar">
+         <form name="searchForm" id="searchForm">
+
+           
+           <br>
+           <span style="color:white"><b>Select tab that contains OCLCs in column A</b></span>
+           <div class="block form-group">
+              <select name="searchForTab" style="text-align:left !important" id="searchForTab" onfocus="google.script.run.withSuccessHandler(showTabsInSidebar).getTabs()">
+              </select>
+           </div>
+           <p>&nbsp;</p>
+            <span style="color:white"><b>Select Services to Search:</b></span>
+            <hr />
+            <div class="block form-group">
+             
+             <span style="color:white">
+              <input type="checkbox" name="worldcatretentions" id="worldcatretentions" value="1"> Shared Print Retentions in OCLC<br />
+             </span>
+              <div id="WC"style="color:white">
+                <span class="oclc-table">
+                  <b>Program Name:</b>
+                     <select name="SPP" id="SPP">
+                      <option value="EAST">EAST</option>
+                      <option value="HathiTrust">HathiTrust</option>
+                      <option value="Maine">Maine SC</option>
+                      <option value="SCELC">SCELC</option>
+                     </select>
+                </span>
+               <table class="oclc-table">
+                 <tr><td colspan="2"><b>OCLC API Key and Secret</b></td></tr>
+                 <tr>
+                   <td>Key:</td>
+                  <td><input type="text" id="apiKey" name="apiKey" placeholder="api key" value=""/></td>
+                </tr>
+                 <tr>
+                   <td>Secret:&nbsp;</td>
+                   <td><input type="text" id="apiSecret" name="apiSecret" placeholder="api secret" value=""/></td>
+                </tr>
+              </table>
+            
+              <span style="color:white">
+              <input type="checkbox" name="WCData" value="1">Include Additional WorldCat Data - <br />
+                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i>Merged OCNs, Title </i><br />
+                 <input type="checkbox" name="WCHoldings" id="WCHoldings">Include Worldcat Holdings <br />
+                 <div id="WCHoldingsRadio">
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<input type="radio" name="WCHoldingsType" value="false" checked="checked">same edition <br />
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<input type="radio" name="WCHoldingsType" value="true">any edition
+                 </div>
+              </span>
+              </div>
+           </div>
+          <hr />
+           <div class="block form-group">
+              <span style="color:white">
+                  <input type="checkbox" name="hathi" value="1"> Availability in HathiTrust<br />
+              <hr />
+                  <input type="checkbox" name="ia" value="1"> Availability in Internet Archives<br />
+              </span>
+           </div>
+         
+
+           <!--<button id="auth"></button>-->
+         <hr />
+         <div class="block form-group">
+              <span style="color:white">
+               Send email upon completion <input type="checkbox" id="sendEmail" name="sendEmail" value="1">
+               <div id="emailAddressbox">
+                 <input type="email" id="emailAddress" name="emailAddress">
+                 </div>
+              </span>
+         </div>
+         <hr/>
+         <div class="block form-group">
+              <input type="button" class="action" value="Start Search" onclick="startSearch()" />
+         </div>
+         <hr/>
+    
+
+      </form>
+      <div id="Progress"style="color:white">
+        Progress:
+        <div id="progressbar" class="white"></div>
+      </div>
+
+     </div>
+ 
+    <!-- Load the jQuery library from the Google CDN -->
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css">
+    <script src="//code.jquery.com/ui/1.12.1/jquery-ui.js"></script>    
+
+    <script>
+
+
+      function done() {
+       clearInterval(ProgVar);
+       $( "#Progress" ).hide( );
+       var done = new Date();
+       console.log("Google Script done time: " + done.toUTCString());
+        
+       // google.script.host.close(); // close the sidebar when done
+      } // end function done
+     
+      function updateProgressBar(percentDone) {
+        //alert("Local" + percentDone);
+        var middle = new Date();
+        console.log("update progress bar called at: " + middle.toUTCString());
+        console.log("Local Percent Done: " + percentDone); 
+        //console.log(typeof percentDone);
+        $( "#progressbar" ).progressbar( "option", "value", parseInt(percentDone) ); 
+        //$( "#progressbar" ).progressbar( "option", "value", 80 ); 
+
+      }
+
+      function startSearch() {
+         $( "#Progress" ).show( );
+         $( "#progressbar" ).progressbar({value: false}); // false gets you indeterminate bar, could also use number%
+        // $( "#progressbar" ).progressbar({value: 2 }); //  use number%
+        var now = new Date();
+        console.log("Google Script start time: " + now.toUTCString());
+        google.script.run
+            .withSuccessHandler(done)
+            .startLookup(document.getElementById('searchForm'));  
+
+        //let ProgVar = setInterval(updateProgressBar(50), 500);
+        // I think startlookup comes back done before all subroutines done (???) ... setting bar to indeterminate for now
+        //ProgVar = setInterval(google.script.run.withSuccessHandler(updateProgressBar).getPercentDone(), 5000) ;
+        //setInterval(test, 1000);
+
+      } // end startSearch
+
+      //function test() { console.log("in test");}
+    </script>
+
+    <script>
+        // The code in this function runs when the sidebar page is loaded.
+        // get__ are a server side functions in Code.gs
+        var ProgVar ; // set globally
+
+        $(function() {
+           google.script.run.withSuccessHandler(showTabsInSidebar).getTabs(); 
+           google.script.run.withSuccessHandler(setKey).getStoredAPIKey();
+           google.script.run.withSuccessHandler(setSKey).getStoredAPISecret();
+        }); // end function that runs on start
+        
+        function setKey(apiKey){
+          if (apiKey == null  || apiKey === undefined) apiKey = "";
+          document.getElementById('apiKey').value=apiKey;
+        }
+        function setSKey(apiSecret){
+          if (apiSecret == null  || apiSecret === undefined) apiSecret = "";
+          document.getElementById('apiSecret').value=apiSecret;
+        }
+      
+        function showTabsInSidebar(tabs) { 
+          //var select = document.getElementById("tabSelection");
+          var searchFor = document.getElementById("searchForTab");
+          
+          var currentSelect = null;
+          var currentSearchForIndex = null;
+          
+          try {
+            var currentSearchForIndex = document.getElementById("searchForTab").selectedIndex;
+            currentSearchForIndex = document.getElementById("searchForTab").options[currentSearchForIndex].value;
+          }
+          catch(err) { //FINE - MAY NOT BE POPULATED YET
+          }
+          
+          $('#searchForTab').empty();
+          
+          //ADD TABS TO DROP DOWN BOXES
+           for (var i = 0; i < tabs.length; i++) {
+             var option = document.createElement('option');
+             option.text = option.value = tabs[i];
+             searchFor.add(option, 0);
+             if (currentSearchForIndex == option.text) option.selected = true;
+          }       
+      } // end function showTabsInSidebar
+ 
+
+        $( "#WC" ).hide();
+        $( "#WCHoldingsRadio" ).hide();
+        $( "#Progress" ).hide();
+        $( "#emailAddressbox").hide();
+
+    $( "#worldcatretentions" ).click(function() {
+       $( "#WC" ).toggle();
+    });
+    $( "#WCHoldings" ).click(function() {
+       $( "#WCHoldingsRadio" ).toggle();
+    });
+    
+    $( "#sendEmail" ).click(function() {
+       $( "#emailAddressbox" ).toggle();
+    });
+ 
+
+    </script>
+    
+  </body>
+</html>
