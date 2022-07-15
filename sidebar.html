@@ -25,6 +25,8 @@
 <body bgcolor="#44546D">
       <div class="sidebar">
          <form name="searchForm" id="searchForm">
+         <!--<form name="searchForm" id="searchForm" onsubmit="startSearch()"> - oddly doing it this way results in blank sidebar onsubmit-->
+
 
            
            <br>
@@ -32,6 +34,11 @@
            <div class="block form-group">
               <select name="searchForTab" style="text-align:left !important" id="searchForTab" onfocus="google.script.run.withSuccessHandler(showTabsInSidebar).getTabs()">
               </select>
+           </div>
+           <div class="block form-group">
+              <span style="color:white"><b>Start search at row number:</b></span>
+              <input type="number" name="startRow" style="text-align:left !important" id="startRow"  value="2" min="2" max="1000"/>
+              &nbsp;&nbsp;<span style="color:white">(optional: min 2, max 1,000)</span> <!-- only works if form uses submit button-->
            </div>
            <p>&nbsp;</p>
             <span style="color:white"><b>Select Services to Search:</b></span>
@@ -90,20 +97,21 @@
               <span style="color:white">
                Send email upon completion <input type="checkbox" id="sendEmail" name="sendEmail" value="1">
                <div id="emailAddressbox">
-                 <input type="email" id="emailAddress" name="emailAddress">
+                 <input type="email" id="emailAddress" name="emailAddress" placeholder="Email address">
                  </div>
               </span>
          </div>
          <hr/>
          <div class="block form-group">
               <input type="button" class="action" value="Start Search" onclick="startSearch()" />
+              <!--<input type="submit" class="action" value="Start Search"  /> onsubmit in form tag, but doesn't work right, not going to troubleshoot-->
          </div>
          <hr/>
     
 
       </form>
       <div id="Progress"style="color:white">
-        Progress:
+        Working...
         <div id="progressbar" class="white"></div>
       </div>
 

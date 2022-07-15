@@ -1,52 +1,59 @@
 /* 
 Check HathiTrust, OCLC, and/or Internet Archives for holdings and Shared Print registrations
+Searches limited to 1000 row, otherwise gives warning
+OCNs must be in column A, overwrites columns B-K
 
+Given column a of OCLC numbers:
+1)  Hathi - Access level in column D
+2)  IA - Colummn E  
+3)  OCLC for SPP retentions put in column C, retained by in column D 
+4)  OCLC for current number, retrieve merged numbers  B, H
 
-working on 
+To Do:
+  more error checking on api calls - try/catch them
+  Add toast when done?:  SpreadsheetApp.getActiveSpreadsheet().toast('Complete', 'Status', 3); // so funny!
 
-try/catch for whole lookup - catch randomerrors and also timeout
+working on:
+Exceeded maximum execution time  - hangs program - not caught :(
 
-TypeError: retainedBY.join is not a function
+sometimes seeing : TypeError: undefined is not a function
+                    BUT not limited to a certain OCN, not sure what triggers it, maybe something in IA lookup
+IA error (shows in spreadsheet column: Exception: Address unavailable: https://archive.org/advancedsearch.php?q=oclc-id%3A36246&fl%5B%5D=licenseurl,identifier&sort%5B%5D=&sort%5B%5D=&sort%5B%5D=&rows=50&page=1&output=json)
 
+trying try/catch for whole lookup - catch randomerrors and also timeout? = testing
 
-currently finding out why odd resulst oclc not in hathi
-https://catalog.hathitrust.org/api/volumes/brief/oclc/35954.json
-TypeError: Cannot read property 'length' of undefined. - rights = err
+Saw error one time (hung code) Log said failed "We're sorry, a server error occurred while reading from storage. Error code RESOURCE_EXHAUSTED.
+"  -- https://cloud.google.com/apis/design/errors says this is a server 429 error
+
+looking ~180
+TypeError: retainedBY.join is not a function (one example happened on row 327 of test 400 - ocn: 32625860, though running that OCN alone is okay --- actually its the one after - 43096707)
+-- sometimes retainedBY is a string - why???
+May have fixed this ~ line 380  retainedBy = [];
 
 IA error: Exception: Address unavailable: (https://archive.org/advancedsearch.php?q=oclc-id%3A1086981674&fl%5B%5D=licenseurl,identifier&sort%5B%5D=&sort%5B%5D=&sort%5B%5D=&rows=50&page=1&output=json
 ).  --- seems like there might have been a line break after "oclc-"
 
-retainedBY.join error (undefined?)
-
-Given column a of OCLC numbers:
-1)  Hathi - put access level in column d  
-2)  IA - put in colummn e  
-3)  OCLC for SPP retentions put in column c, retained by in column d  
-4)  OCLC for current number, retrieve merged numbers  
-
-To Do:
-  add catch for sheet more than 1000 rows - times out / takes too long
-
-  more error checking on api calls - try/catch them
-  Add toast when done?:  SpreadsheetApp.getActiveSpreadsheet().toast('Complete', 'Status', 3); // so funny!
-
-Enhancements:  
-set column widths?
-translate which libraries retain - would mean mapping to library name - EAST could in theory use spreadsheet, others would need another api call, 
-    but could get you also opac link. More than I'm willing to think about right now. 
-make get oclc from isbn feature? or 2nd column of isbn to test if oclc doesn't match? API doesn't support isbn lookup
-Add check for holdings or retentions on symbol - symbol input in sidebar - not sure what the use case is here
-
+\
 ~ line 100 of sidebar.hmtl - try to get return value of getPercentDone 
   problem at line 500 in code.gs - not reading global var percentDone - or startLookup not updating global var
   https://developers.google.com/apps-script/guides/html/reference/run
   Setting above aside for now, make it a indetermiate status bar
 
-  deal with this error -- moved to main section instead of update function. trying to catch. hopefully won't see it again.
-    Error	Exception: There are too many LockService operations against the same script.
-      at updateSheetColumn(Code:222:12)
-      at startLookup(Code:203:6)
+
+
+Enhancements:  
+--Set column widths?
+--Translate which libraries retain - symbol -> library 
+        would mean mapping to library name - EAST could in theory use spreadsheet, 
+        others would need another api call, 
+        BUT could get you also opac link. More than I'm willing to think about right now. 
+--Make get oclc from isbn feature? or 2nd column of isbn to test if oclc doesn't match? API doesn't support isbn lookup but could possible 
+    get from another API search
+--Add check for holdings or retentions on symbol - symbol input in sidebar - not sure what the use case is here
+
+
 */
+/*=====================================================================================================*/
 /* Note: API target retained-holdings => current OCLC & who retains, does not return merged numbers */
 /* don't forget to turn off all the logging when done */
 /* adapted from:  https://github.com/suranofsky/tech-services-g-sheets-addon/blob/master/Code.gs */
@@ -121,9 +128,6 @@ function startLookup(form) {
 
    var SPP = form.SPP;  
 
-   //FOR EACH ITEM TO BE LOOKED UP IN THE DATA SPREADSHEET:
-
-   try {
    var lastRow = dataSheet.getLastRow();   
    if (lastRow > 1000) {
       ui.alert("This script works best with under 1,000 rows. \nPlease try again with a shorter sheet");
@@ -143,109 +147,148 @@ function startLookup(form) {
    var usHoldingsColumn = new Array(numRows); // store worldcat same edition holdings
    var worldcatTitleColumn = new Array(numRows); // store worldcat title
    var edition = "" ;  // used to set header column with 'same' or 'any' edition
+   var startingRow = form.startRow;
+
+if (startingRow > lastRow) {
+      ui.alert("Start search at row number is "+ startingRow + ", but this sheet only has " + lastRow.toString() + " Rows.\nPlease try again with a lower start row number");
+      return;
+   }
+if (startingRow < 2) {
+      ui.alert("'Start search at row number' must be greater than 1.\nPlease try again");
+      return;
+   }
 
    if (form.WCHoldings == true) {edition = "Any"} else { edition = "Same"} ;
    var columnHeaders = [["WorldCat OCLC", SPP + " Retentions", "Retained By Symbol", "Hathi", "IA", "US Holdings (" + edition + " edition) in WorldCat", "Merged OCLC numbers", 	"Hathi ID", "Hathi Title", "OCLC Title"]] ;
-  
-  for (var x = 1; x <= numRows; x++) { //  
-     var oclcCell = oclcsRange.getCell(x,1);
-     var merged = "" ;
-     var htid = "" ;   
 
-     percentDone = parseInt((x/numRows) * 100);
-     PropertiesService.getUserProperties().setProperty('percentDone', percentDone);
-     //ui.alert(percentDone); // this works, but global variable seems not around at end of script??
+  try {// wondering if this will catch time outs - try/catch around all lookups
+   var x = 1;
+   if (startingRow != null && startingRow != "" && startingRow !=1) 
+    { 
+      x = startingRow-1 ;
+    }  else { 
+      startingRow=2; // start at 2 for sheet update
+    } // end if staringRow not null 
 
-     Logger.log("Row: " + x + " OCLC: " + oclcCell.getValue());
+   for (x; x <= numRows; x++) { //FOR EACH ITEM TO BE LOOKED UP IN THE DATA SPREADSHEET:
+   // for (var x =1; x <= numRows; x++) { //FOR EACH ITEM TO BE LOOKED UP IN THE DATA SPREADSHEET:
+      var oclcCell = oclcsRange.getCell(x,1);
+      var merged = "" ;
+      var htid = "" ;   
 
-     if (!oclcCell.isBlank()) {
-         var oclc = oclcCell.getValue() ;
-         if (isNaN(oclc)) { //test if NaN, if so, skip
-            oclc = oclc.toString().toLowerCase(); 
-            if (oclc.startsWith("ocn") || oclc.startsWith("ocm")) { 
-              oclc = oclc.replace("ocn", "");
-              oclc = oclc.replace("ocm", "");
-            } else {
-              currentOCLCColumn[x-1] = "Invalid OCN"; 
-              continue ;
-            } // doesn't start with ocn or ocm
-         } // end test if NaN, if so remove prefix or skip
+      percentDone = parseInt((x/numRows) * 100);
+      PropertiesService.getUserProperties().setProperty('percentDone', percentDone);
+      //ui.alert(percentDone); // this works, but global variable seems not around at end of script??
+
+      Logger.log("Row: " + x + " OCLC: " + oclcCell.getValue());
+
+      if (!oclcCell.isBlank()) {
+          var oclc = oclcCell.getValue() ;
+          if (isNaN(oclc)) { //test if NaN, if so, skip
+              oclc = oclc.toString().toLowerCase(); 
+              if (oclc.startsWith("ocn") || oclc.startsWith("ocm")) { 
+                oclc = oclc.replace("ocn", "");
+                oclc = oclc.replace("ocm", "");
+              } else {
+                currentOCLCColumn[x-1] = "Invalid OCN"; 
+                continue ;
+              } // doesn't start with ocn or ocm
+          } // end test if NaN, if so remove prefix or skip
            
-         oclc = parseInt(oclc, 10); // trim leading zeros (will round any decimals - should not be any anyways.)
-       
-        // check here which systems to check and do it!
-       if (form.worldcatretentions) {  // this is the checkbox for WC retentions 
-         let [numbEASTHoldings, retainedBY, currentOCLC] = getEASTHoldings(oclc, SPP) ;
-        // ui.alert(retainedBY);
-         if (numbEASTHoldings > 999999) {
-          eastColumn[x-1] = "" // API returned wacky number for holdings, invalid OCLC
-          currentOCLCColumn[x-1] = "Invalid OCN"; 
-          continue
-         } else if (typeof retainedBY != "undefined") {
-          eastColumn[x-1] = numbEASTHoldings //array for updating sheet; x is 1, array index starts at 0
-          retainersColumn[x-1] = retainedBY.join(',');
-         } else {
-          eastColumn[x-1] = numbEASTHoldings //array for updating sheet; x is 1, array index starts at 0
-          retainersColumn[x-1] = "";
+          oclc = parseInt(oclc, 10); // trim leading zeros (will round any decimals - should not be any anyways.)
+          //ui.alert(oclc)
+          // check here which systems to check and do it!
+        if (form.worldcatretentions) {  // this is the checkbox for WC retentions 
+          let [numbEASTHoldings, retainedBY, currentOCLC] = getEASTHoldings(oclc, SPP) ;
+          // ui.alert(retainedBY);
 
-         }
-        if (form.WCData || form.WCHoldings) {
-          // SHOULD CHECK 'currentOCLC' for validity and use that when valid
-          // overwrite currentOCLC cuz above leaves out current if retained is 0
-          [usHoldingsColumn[x-1], worldcatTitleColumn[x-1] , currentOCLC, merged] = getWorldCatHoldings(oclc,form.WCHoldingsType) ;
+          if (numbEASTHoldings > 999999) {
+            eastColumn[x-1] = "" // API returned wacky number for holdings, invalid OCLC
+            currentOCLCColumn[x-1] = "Invalid OCN"; 
+            continue
+          } else if (typeof retainedBY != "undefined") {
+            eastColumn[x-1] = numbEASTHoldings //array for updating sheet; x is 1, array index starts at 0
+            // check how long retainedBY is - if more than one, can join? Is this the join error spot?
+            Logger.log(typeof retainedBY)
+            Logger.log(retainedBY)
+            retainersColumn[x-1] = retainedBY.join(',');
+          } else {
+            eastColumn[x-1] = numbEASTHoldings //array for updating sheet; x is 1, array index starts at 0
+            retainersColumn[x-1] = "";
+          }// end else ifs for holdings > 999999
+
+          if (form.WCData || form.WCHoldings) {
+            // SHOULD CHECK 'currentOCLC' for validity and use that when valid
+            // overwrite currentOCLC cuz above leaves out current if retained is 0
+            [usHoldingsColumn[x-1], worldcatTitleColumn[x-1] , currentOCLC, merged] = getWorldCatHoldings(oclc,form.WCHoldingsType) ;
+            // check if usHoldings came back as 'invalid oclc'
+            if (usHoldingsColumn[x-1] == 'invalid oclc') {
+              currentOCLC = "Invalid OCN";
+              usHoldingsColumn[x-1] = "";
+              eastColumn[x-1] = "" ; // this is 0 from getEASTHoldings by virtue of API reporting 0 not ocn error
+            } // end if usHoldings is invalid oclc
+          } // end if WCData or WCHoldings
+
           if (merged) {
-             mergedOCLCColumn[x-1] = String(merged);
-          }
-
-        } // end form WCData
-        currentOCLCColumn[x-1] = '=hyperlink("https://worldcat.org/oclc/' + currentOCLC +  '","' + currentOCLC + '")'; 
-
-       } // end form.worldcatretentions   
+              mergedOCLCColumn[x-1] = String(merged);
+          } // end if merged
+          
+          if (currentOCLC == "Invalid OCN") {
+            currentOCLCColumn[x-1] =  currentOCLC; 
+          } else {
+            currentOCLCColumn[x-1] = '=hyperlink("https://worldcat.org/oclc/' + currentOCLC +  '","' + currentOCLC + '")'; 
+          } // end if currentOCLC is 'Invalid OCN'
+        } // end form.worldcatretentions   
        
-       if (form.hathi) { 
-         var [hathiHoldings, htid, htitle] = getHathiHoldingsMerged(oclc, merged) ;
-         hathiColumn[x-1] = hathiHoldings ;
-         hathiIdColumn[x-1] = htid ;
-         hathiTitleColumn[x-1] = htitle ;
-       } // end form.hathi
+        if (form.hathi) { 
+          var [hathiHoldings, htid, htitle] = getHathiHoldingsMerged(oclc, merged) ;
+          //ui.alert("row (index starts at 0): " + String(x))
+          hathiColumn[x-1] = hathiHoldings ;
+          hathiIdColumn[x-1] = htid ;
+          hathiTitleColumn[x-1] = htitle ;
+        } // end form.hathi
        
-       if (form.ia){
-         var iaHoldings = getIAHoldingsMerged(oclc, merged) ;
-         iaColumn[x-1] = iaHoldings ;
-       } // end form.ia  
+        if (form.ia){
+          var iaHoldings = getIAHoldingsMerged(oclc, merged) ;
+          iaColumn[x-1] = iaHoldings ;
+        } // end form.ia  
        
-     } // end if oclc cell not blank
-   } // end for each OCLC
+      } // end if oclc cell not blank
+    } // end for each OCLC
   
-  // update sheet, would be faster to do as a multidimensional array
-   } catch(err) {
+  } catch(err) {
      Logger.log(err);
      ui.alert(err); // will this catch Exceeded maximum execution time
-     // need to return here? or it does continue on and write out what it got...
+     // need to return here? it does write out what it got... but doesn't continue on
+   } // end catch
 
-   }
+  // update sheet, would be faster to do as a multidimensional array
   try {
     var lock = LockService.getScriptLock();
     try { 
     lock.tryLock(30000)  //This method has no effect if the lock has already been acquired.https://developers.google.com/apps-script/reference/lock/lock
     
     if (form.hathi) {
-      updateSheetColumn(numRows, hathiColumn, "E", dataSheet) ; 
-      updateSheetColumn(numRows, hathiIdColumn, "I", dataSheet) ; 
-      updateSheetColumn(numRows, hathiTitleColumn, "J", dataSheet) ; 
+      //ui.alert(hathiColumn);
+      //updateSheetColumn(numRows, hathiColumn, "E", dataSheet) ; 
+      //updateSheetColumn(numRows, hathiIdColumn, "I", dataSheet) ; 
+      //updateSheetColumn(numRows, hathiTitleColumn, "J", dataSheet) ; 
+      updateSheetColumn(startingRow, numRows, hathiColumn, "E", dataSheet) ; 
+      updateSheetColumn(startingRow, numRows, hathiIdColumn, "I", dataSheet) ; 
+      updateSheetColumn(startingRow, numRows, hathiTitleColumn, "J", dataSheet) ; 
     }
-    if (form.ia)   {updateSheetColumn(numRows, iaColumn, "F", dataSheet) ; }
+    if (form.ia)   {updateSheetColumn(startingRow, numRows, iaColumn, "F", dataSheet) ; }
 
   if (form.worldcatretentions) { // this is the checkbox for EAST
-      updateSheetColumn(numRows, eastColumn,        "C", dataSheet) ; 
-      updateSheetColumn(numRows, retainersColumn,   "D", dataSheet) ; 
-      updateSheetColumn(numRows, currentOCLCColumn, "B", dataSheet) ; 
+      updateSheetColumn(startingRow, numRows, eastColumn,        "C", dataSheet) ; 
+      updateSheetColumn(startingRow, numRows, retainersColumn,   "D", dataSheet) ; 
+      updateSheetColumn(startingRow, numRows, currentOCLCColumn, "B", dataSheet) ; 
       if (form.WCHoldings) {
-        updateSheetColumn(numRows, usHoldingsColumn, "G", dataSheet) ;
+        updateSheetColumn(startingRow, numRows, usHoldingsColumn, "G", dataSheet) ;
       }
       if (form.WCData) { 
-        updateSheetColumn(numRows, mergedOCLCColumn, "H", dataSheet) ;
-        updateSheetColumn(numRows, worldcatTitleColumn, "K", dataSheet) ; }
+        updateSheetColumn(startingRow, numRows, mergedOCLCColumn, "H", dataSheet) ;
+        updateSheetColumn(startingRow, numRows, worldcatTitleColumn, "K", dataSheet) ; }
     } // end if form.worldcatretentions
   
     dataSheet.getRange("B1:K1").setValues(columnHeaders); // set column headers
@@ -289,15 +332,31 @@ function startLookup(form) {
 } // end start lookup
 
 //===================================================================================================
-function updateSheetColumn(rows, newValues, column, sheet) {  //https://developers.google.com/apps-script/guides/support/best-practices
+//function updateSheetColumn(rows, newValues, column, sheet) {  //https://developers.google.com/apps-script/guides/support/best-practices
+function updateSheetColumn(startingRow, rows, newValues, column, sheet) {  //https://developers.google.com/apps-script/guides/support/best-practices
   //Logger.log(newValues) ;
   //Logger.log(rows) ;
+ 
+ // ui.alert(newValues)
+ //ui.alert(rows)
+ //ui.alert(rows-(startingRow-1)) // 4-(4-1) = 4-3 = 1
+ numrowsremove = startingRow-2
+ //ui.alert(numrowsremove)
+newValues.splice(0, numrowsremove);
+//ui.alert(newValues)
 
     var formatColumn = sheet.getRange(column + ":" + column);
     formatColumn.setNumberFormat("@"); // set column to be a text, not number, column - for merged OCLC numbers especially!
-    
-    var rangeRows = rows + 1 // number of rows to fetch 
-    var sheetRange = column + "2:" + column + rangeRows ;
+   
+    //var rangeRows = rows + 1 // number of rows to fetch 
+    var rangeRows = (rows-(startingRow-1)+1)  // number of rows to fetch 
+    //ui.alert(rangeRows)
+
+    //var sheetRange = column + "2:" + column + rangeRows ;
+    var sheetRange = column + startingRow + ":" + column + (rows + 1) ;
+         
+   // ui.alert(rows)
+    //ui.alert(sheetRange);
     var allRange = sheet.getRange(sheetRange);// e.g. sheet.getRange("C2:C600") 
     
     var updateValues = [] ; // create new array for update [column][index]
@@ -307,6 +366,7 @@ function updateSheetColumn(rows, newValues, column, sheet) {  //https://develope
       updateValues[counter][0] = newValues[counter];  
   }  // end for counter < new values 
     //Logger.log("updateValues: " + updateValues);
+    //ui.alert(updateValues)
     allRange.setValues(updateValues) ; // actually update the sheet
    
 } // end updateSheetColumn
@@ -349,7 +409,7 @@ function getEASTHoldings(oclc, SPP) {
      if(response.getResponseCode() != 200) { // not 200
        //Logger.log(response.getResponseCode());
           numberEASTHoldings = "";
-          retainedBy = "";
+          retainedBy = [];
           currentOCLC = "Server Error: " + response.getResponseCode() ;
      } else { //valid response
           var results = JSON.parse(response.getContentText());
@@ -393,7 +453,7 @@ function getHathiHoldingsMerged(oclc, merged) { //https://catalog.hathitrust.org
     //Logger.log("type of response: " + typeof response.items[0]) ;
 
     if (typeof response.items[0] == "undefined") {
-      if (merged.length > 0) { // there are alt oclc numbers
+      if (merged && merged.length > 0) { // there are alt oclc numbers
         for (altNumb in merged) {
           //Logger.log("altNumb: " + altNumb + " Merged: " + merged + " typeof: " + typeof merged + " len: " + merged.length);
           //Logger.log(merged[altNumb]);
@@ -435,20 +495,25 @@ function getHathiHoldingsMerged(oclc, merged) { //https://catalog.hathitrust.org
 function getIAHoldingsMerged(oclc, merged) { 
   // https://archive.org/advancedsearch.php?q=oclc-id%3A31773958&fl%5B%5D=licenseurl&sort%5B%5D=&sort%5B%5D=&sort%5B%5D=&rows=50&page=1&output=json&callback=callback
   // https://archive.org/advancedsearch.php?q=oclc-id:31773958
+  // https://archive.org/advancedsearch.php?q=oclc-id:31773958&fl[]=identifier&output=json // this one clean!
   // https://archive.org/advancedsearch.php?q=oclc-id%3A31773958&fl%5B%5D=licenseurl&sort%5B%5D=&sort%5B%5D=&sort%5B%5D=&rows=50&page=1&fl%5B%5D=identifier&output=json
+  
   // local variables:
-  var iaurl = "https://archive.org/advancedsearch.php?q=oclc-id%3A" +  oclc +  "&fl%5B%5D=licenseurl,identifier&sort%5B%5D=&sort%5B%5D=&sort%5B%5D=&rows=50&page=1&output=json"
+  //var iaurl = "https://archive.org/advancedsearch.php?q=oclc-id%3A" +  oclc +  "&fl%5B%5D=licenseurl,identifier&sort%5B%5D=&sort%5B%5D=&sort%5B%5D=&rows=50&page=1&output=json"
+  var iaurl = "https://archive.org/advancedsearch.php?q=oclc-id:" + oclc + "&fl[]=identifier&output=json"
   var iaholdings = ""
  // var response = JSON.parse(UrlFetchApp.fetch(iaurl).getContentText());
   
   try {
    var r =  UrlFetchApp.fetch(iaurl);
-    Logger.log(iaurl);
+    Logger.log("OCLC: " + oclc + "iaurl: " + iaurl);
  
    // Logger.log(r.getResponseCode());
-   var response = JSON.parse(r.getContentText()) ;
-   Logger.log(response);
 
+   // PUT TRY CATCH HERE!??
+   var response = JSON.parse(r.getContentText()) ;
+   Logger.log("IA Response: " + response);
+   if (response) {
    if  (response.response.numFound == 0 ) {
      if (typeof merged !== 'undefined') {
 
@@ -470,7 +535,7 @@ function getIAHoldingsMerged(oclc, merged) {
      var recordurl = "https://archive.org/details/" + id  ;
      var iaholdings = '=hyperlink("' + recordurl +  '","' + id + '")';    
    } // end response > 0
-     
+   } // end if response.response
   } catch(err) {
     iaholdings = err
   }
@@ -590,24 +655,6 @@ function getPercentDone() {
 
   //return percentDone ;
 }
-//===================================================================================================  
-function getMSCCHoldings() {
-/*
-Bangor Public: BYN
-Bates College: BTS
-Bowdoin College: BBH
-Colby College: CBY
-Maine State Library: MEA
-University of Maine Orono: MEU
-University of Maine Machias: UMY
-University of Maine at Presque Isle: UPQ
-University of Maine at Farmington: UMF
-University of Maine at Augusta: AUG
-University of Maine at Augusta-Bangor: BAQ
-University of Southern Maine: PGP
-Portland Public: PPN
-*/
-}  
 //===================================================================================================  
 
 function getApiService() {  //https://github.com/gsuitedevs/apps-script-oauth2/blob/master/samples/TwitterAppOnly.gs
