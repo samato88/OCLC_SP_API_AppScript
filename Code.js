@@ -421,9 +421,17 @@ function getEASTHoldings(oclc, SPP) {
 
             for (lib in results.detailedHoldings) {
 /*
-{detailedHoldings=[{format=zu, lhrLastUpdated=20210215, sharedPrintCommitments=[{actionNote=committed to retain, dateOfAction=20160630, commitmentExpirationDate=20310630, authorization=EAST, institution=MBU}], lhrControlNumber=352397802, lhrDateEntered=20210215, location={sublocationCollection=BOSS, holdingLocation=BOS}, hasSharedPrintCommitment=Y, summary=Local Holdings Available., oclcNumber=123456}], numberOfHoldings=1.0} */
+{detailedHoldings=[{format=zu, lhrLastUpdated=20210215, sharedPrintCommitments=[{actionNote=committed to retain, dateOfAction=20160630, commitmentExpirationDate=20310630, authorization=EAST, institution=MBU}], lhrControlNumber=352397802, lhrDateEntered=20210215, location={sublocationCollection=BOSS, holdingLocation=BOS}, hasSharedPrintCommitment=Y, summary=Local Holdings Available., oclcNumber=123456}], numberOfHoldings=1.0} 
+
+Occasionaly see results with no holdingLocaion and "lhrControlNumber": "UnavailableLHR352140713",
+was giving TypeError: Cannot read property 'holdingLocation' of undefined
+*/
               //Logger.log(results.detailedHoldings[lib].location.holdingLocation);  
-              retainedBy.push(results.detailedHoldings[lib].location.holdingLocation); //  holdings symbol
+              if (!results.detailedHoldings[lib].lhrControlNumber.startsWith("Unavailable")) {  
+                retainedBy.push(results.detailedHoldings[lib].location.holdingLocation); //  holdings symbol
+              } else if (numberEASTHoldings > 0) { // else you should decrement the number of holdings
+                --numberEASTHoldings
+              }
             } // end foreach results.detailedHoldings (LHRs)
             
             //ui.alert("EAST: " + numberEASTHoldings); 
