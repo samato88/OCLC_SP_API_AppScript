@@ -1,5 +1,5 @@
 /* 
-Check HathiTrust, OCLC, and/or Internet Archives for holdings and Shared Print registrations
+Check HathiTrust and/or Internet Archives for holdings and OCLC for Shared Print registrations
 Searches limited to 1000 row, otherwise gives warning
 OCNs must be in column A, overwrites columns B-K
 
@@ -14,42 +14,20 @@ To Do:
   Add toast when done?:  SpreadsheetApp.getActiveSpreadsheet().toast('Complete', 'Status', 3); // so funny!
 
 working on:
-Exceeded maximum execution time  - hangs program - not caught :(
+Exceeded maximum execution time  - hangs program - not caught - not sure what I can do here. 
 
-sometimes seeing : TypeError: undefined is not a function
-                    BUT not limited to a certain OCN, not sure what triggers it, maybe something in IA lookup
-IA error (shows in spreadsheet column: Exception: Address unavailable: https://archive.org/advancedsearch.php?q=oclc-id%3A36246&fl%5B%5D=licenseurl,identifier&sort%5B%5D=&sort%5B%5D=&sort%5B%5D=&rows=50&page=1&output=json)
-
-trying try/catch for whole lookup - catch randomerrors and also timeout? = testing
-
-Saw error one time (hung code) Log said failed "We're sorry, a server error occurred while reading from storage. Error code RESOURCE_EXHAUSTED.
-"  -- https://cloud.google.com/apis/design/errors says this is a server 429 error
-
-looking ~180
-TypeError: retainedBY.join is not a function (one example happened on row 327 of test 400 - ocn: 32625860, though running that OCN alone is okay --- actually its the one after - 43096707)
--- sometimes retainedBY is a string - why???
-May have fixed this ~ line 380  retainedBy = [];
-
-IA error: Exception: Address unavailable: (https://archive.org/advancedsearch.php?q=oclc-id%3A1086981674&fl%5B%5D=licenseurl,identifier&sort%5B%5D=&sort%5B%5D=&sort%5B%5D=&rows=50&page=1&output=json
-).  --- seems like there might have been a line break after "oclc-"
-
-\
 ~ line 100 of sidebar.hmtl - try to get return value of getPercentDone 
   problem at line 500 in code.gs - not reading global var percentDone - or startLookup not updating global var
   https://developers.google.com/apps-script/guides/html/reference/run
-  Setting above aside for now, make it a indetermiate status bar
-
-
+  Setting above aside for now, made it a indetermiate status bar
 
 Enhancements:  
 --Set column widths?
 --Translate which libraries retain - symbol -> library 
         would mean mapping to library name - EAST could in theory use spreadsheet, 
-        others would need another api call, 
-        BUT could get you also opac link. More than I'm willing to think about right now. 
---Make get oclc from isbn feature? or 2nd column of isbn to test if oclc doesn't match? API doesn't support isbn lookup but could possible 
-    get from another API search
---Add check for holdings or retentions on symbol - symbol input in sidebar - not sure what the use case is here
+        others would need another api call, BUT could get you also opac link
+--Make get oclc from isbn feature? or 2nd column of isbn to test if oclc doesn't match? API doesn't support isbn lookup but could possible perhaps with bib search first
+ --Add check for holdings or retentions on symbol - symbol input in sidebar  
 
 
 */
@@ -196,21 +174,18 @@ if (startingRow < 2) {
           } // end test if NaN, if so remove prefix or skip
            
           oclc = parseInt(oclc, 10); // trim leading zeros (will round any decimals - should not be any anyways.)
-          //ui.alert(oclc)
+        
           // check here which systems to check and do it!
         if (form.worldcatretentions) {  // this is the checkbox for WC retentions 
           let [numbEASTHoldings, retainedBY, currentOCLC] = getEASTHoldings(oclc, SPP) ;
           // ui.alert(retainedBY);
 
           if (numbEASTHoldings > 999999) {
-            eastColumn[x-1] = "" // API returned wacky number for holdings, invalid OCLC
+            eastColumn[x-1] = "" // API returned wacky number for holdings if invalid OCLC, this appears fixed now
             currentOCLCColumn[x-1] = "Invalid OCN"; 
             continue
           } else if (typeof retainedBY != "undefined") {
             eastColumn[x-1] = numbEASTHoldings //array for updating sheet; x is 1, array index starts at 0
-            // check how long retainedBY is - if more than one, can join? Is this the join error spot?
-            Logger.log(typeof retainedBY)
-            Logger.log(retainedBY)
             retainersColumn[x-1] = retainedBY.join(',');
           } else {
             eastColumn[x-1] = numbEASTHoldings //array for updating sheet; x is 1, array index starts at 0
@@ -313,7 +288,7 @@ if (startingRow < 2) {
     var emailAddress = form.emailAddress ;
     var emailPattern = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/;  
     if(emailPattern.test(emailAddress) == false) {
-      Logger.log("Invalid Email Address Entered. " + emailAddress);
+      //Logger.log("Invalid Email Address Entered. " + emailAddress);
       ui.alert("Invalid email address entered. No mail will be sent")
     } else {
       var subject = "Shared Print Retentions Spreadsheet Complete";
@@ -336,12 +311,9 @@ if (startingRow < 2) {
 function updateSheetColumn(startingRow, rows, newValues, column, sheet) {  //https://developers.google.com/apps-script/guides/support/best-practices
   //Logger.log(newValues) ;
   //Logger.log(rows) ;
- 
- // ui.alert(newValues)
- //ui.alert(rows)
- //ui.alert(rows-(startingRow-1)) // 4-(4-1) = 4-3 = 1
+  //ui.alert(rows-(startingRow-1)) // 4-(4-1) = 4-3 = 1
  numrowsremove = startingRow-2
- //ui.alert(numrowsremove)
+  //ui.alert(numrowsremove)
 newValues.splice(0, numrowsremove);
 //ui.alert(newValues)
 
@@ -383,15 +355,7 @@ function getEASTHoldings(oclc, SPP) {
     if (!apiService.hasAccess()) { // check if expired.  not sure this is the right way to do that
       getApiService();
     }
-  /*
-    try {
-      var response = UrlFetchApp.fetch(url).getContentText();
-    }
-    catch(err) {
-      Logger.log(response)
-      Logger.log(err)
-    }
-    */
+   // should try/except this
      if (apiService.hasAccess()) { //      
       //Logger.log(service.getAccessToken());
       var url = OCLCurl + 'retained-holdings?oclcNumber=' + oclc + '&spProgram=' + SPP ;
@@ -468,7 +432,7 @@ function getHathiHoldingsMerged(oclc, merged) { //https://catalog.hathitrust.org
             hathiurl = "http://catalog.hathitrust.org/api/volumes/brief/oclc/" +  merged[altNumb] +  ".json"
             response = JSON.parse(UrlFetchApp.fetch(hathiurl,HTTP_OPTIONS).getContentText());
               if (typeof response.items[0] != "undefined") {
-                Logger.log("type of response alt: " + typeof response.items[0]) ;
+                //Logger.log("type of response alt: " + typeof response.items[0]) ;
                 break;
               } // if got response break to outer
        } // end for altNumb in merged
@@ -514,13 +478,13 @@ function getIAHoldingsMerged(oclc, merged) {
   
   try {
    var r =  UrlFetchApp.fetch(iaurl);
-    Logger.log("OCLC: " + oclc + "iaurl: " + iaurl);
+    //Logger.log("OCLC: " + oclc + "iaurl: " + iaurl);
  
    // Logger.log(r.getResponseCode());
 
    // PUT TRY CATCH HERE!??
    var response = JSON.parse(r.getContentText()) ;
-   Logger.log("IA Response: " + response);
+   //Logger.log("IA Response: " + response);
    if (response) {
    if  (response.response.numFound == 0 ) {
      if (typeof merged !== 'undefined') {
@@ -550,61 +514,7 @@ function getIAHoldingsMerged(oclc, merged) {
  
   return iaholdings ;
 }// end get HathiHoldings  
-//===================================================================================================
 
-/* function getCurrentOCLC(oclc) { // I think this can now be deleted
-    //https://americas.api.oclc.org/discovery/worldcat/v1/bibs/650 => MergedOclcNumbers
-    //var apiService = getApiService();
-
-  if (!apiService.hasAccess()) { // check if expired.  not sure this is the right way to do that
-      getApiService();
-  }
-   
-   if (apiService.hasAccess()) {
-     //Logger.log(service.getAccessToken());
-     var url = 'https://americas.api.oclc.org/discovery/worldcat/v1/bibs/' + oclc;
-     var response = UrlFetchApp.fetch(url, {
-       headers: {
-         Authorization: 'Bearer ' + apiService.getAccessToken()
-       },
-       validateHttpsCertificates: false,
-       muteHttpExceptions: true
-     });
-
-     ////NEED TO CHECK RESPONSE HEADER NOT 403 or 404 
-     //Logger.log(response.getHeaders()); //Logger.log(response.getContentText());
-     
-     if(response.getResponseCode() != 200) {
-       Logger.log(response.getResponseCode());
-       return { 
-          currentOCLC: "Server Error: " + response.getResponseCode() , 
-          mergedOCLC: ""
-         }; 
-     } else { //valide response
-          var result = JSON.parse(response.getContentText());
-          //Logger.log(response.getContentText())
-          //ui.alert(result.identifier.oclcNumber)
-          //Logger.log(result.identifier.mergedOclcNumbers.join(','))
-     } // end else is valid response
-   } else {
-       Logger.log(apiService.getLastError());
-       return { 
-          currentOCLC: apiService.getLastError(), 
-          mergedOCLC: ""
-         }; 
- 
-  } // end else doesn't have access
- 
-  if (result.identifier.mergedOclcNumbers) {
-    var Merged = result.identifier.mergedOclcNumbers.join(',') 
-  }
-   
-  return { 
-          currentOCLC: result.identifier.oclcNumber, 
-          mergedOCLC: Merged
-         }; 
-  } // end function getCurrentOCLC
-*/
 //===================================================================================================  
 function getWorldCatHoldings(oclc, edition) {
 //holdingsAllEditions=true
@@ -628,7 +538,7 @@ function getWorldCatHoldings(oclc, edition) {
      //Logger.log(url2)
      //Logger.log(response2)
      if(response2.getResponseCode() != 200) {
-       Logger.log(response2.getResponseCode());
+       //Logger.log(response2.getResponseCode());
        return  response2.getResponseCode() ;
      } else {
        var result2 = JSON.parse(response2.getContentText());
@@ -646,7 +556,7 @@ function getWorldCatHoldings(oclc, edition) {
        } // end else numberOfRecords = 0
      }// end valid response
    } else {
-       Logger.log(apiService.getLastError());
+       //Logger.log(apiService.getLastError());
        return   "Authorization failed"        
   } // end else doesn't have access
     return [holdingsCount, otitle, CurrentOCN, Merged];
@@ -655,8 +565,8 @@ function getWorldCatHoldings(oclc, edition) {
 
 //===================================================================================================  
 function getPercentDone() {
-  Logger.log("PD:" + percentDone);
-  Logger.log("PD property: " + PropertiesService.getUserProperties().getProperty('percentDone'));
+  //Logger.log("PD:" + percentDone);
+  //Logger.log("PD property: " + PropertiesService.getUserProperties().getProperty('percentDone'));
   //ui.alert("PD: " + percentDone)
   //ui.alert("PD Property: " + PropertiesService.getUserProperties().getProperty('percentDone')); // this seems to always be 100 when we get here
   return PropertiesService.getUserProperties().getProperty('percentDone');
