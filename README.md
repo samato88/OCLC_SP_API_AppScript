@@ -9,3 +9,8 @@ API Key and Secret
 Caveats:
 Overwrites columns B-K
 App Script has a 6 minute timeout
+
+---
+Many thanks to [MatchMARC](https://github.com/suranofsky/tech-services-g-sheets-addon) for providing an excellent example. Much code borrowed from them.  
+
+Comments, fixes, additions much appreciated.
