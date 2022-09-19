@@ -1,6 +1,5 @@
-<html><head>
-
-
+<html>
+<head>
      <meta charset="utf-8">
      <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons.css">
      <link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
@@ -18,21 +17,16 @@
             text-align: left;
         }
         .white { background-color: white}
-
      </style>
-
 </head>
+
 <body bgcolor="#44546D">
       <div class="sidebar">
-         <form name="searchForm" id="searchForm">
-         <!--<form name="searchForm" id="searchForm" onsubmit="startSearch()"> - oddly doing it this way results in blank sidebar onsubmit-->
-
-
-           
+         <form name="searchForm" id="searchForm">           
            <br>
            <span style="color:white"><b>Select tab that contains OCLCs in column A</b></span>
            <div class="block form-group">
-              <select name="searchForTab" style="text-align:left !important" id="searchForTab" onfocus="google.script.run.withSuccessHandler(showTabsInSidebar).getTabs()">
+              <select name="searchForTab" style="text-align:left !important" id="searchForTab">
               </select>
            </div>
            <div class="block form-group">
@@ -196,7 +190,6 @@
         }
       
         function showTabsInSidebar(tabs) { 
-          //var select = document.getElementById("tabSelection");
           var searchFor = document.getElementById("searchForTab");
           
           var currentSelect = null;
@@ -236,9 +229,7 @@
     $( "#sendEmail" ).click(function() {
        $( "#emailAddressbox" ).toggle();
     });
- 
 
     </script>
-    
   </body>
 </html>

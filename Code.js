@@ -3,50 +3,32 @@ Check HathiTrust and/or Internet Archives for holdings and OCLC for Shared Print
 Searches limited to 1000 row, otherwise gives warning
 OCNs must be in column A, overwrites columns B-K
 
-Given column a of OCLC numbers:
-1)  Hathi - Access level in column D
-2)  IA - Colummn E  
+Given column A of OCLC numbers:
+1)  Hathi - Access level in column E, ID in I, title in J
+2)  IA - Colummn F  
 3)  OCLC for SPP retentions put in column C, retained by in column D 
 4)  OCLC for current number, retrieve merged numbers  B, H
+5)  OCLC holdings in column G, title in K
 
-To Do:
-  more error checking on api calls - try/catch them
-  Add toast when done?:  SpreadsheetApp.getActiveSpreadsheet().toast('Complete', 'Status', 3); // so funny!
-
-working on:
-Exceeded maximum execution time  - hangs program - not caught - not sure what I can do here. 
-
-~ line 100 of sidebar.hmtl - try to get return value of getPercentDone 
-  problem at line 500 in code.gs - not reading global var percentDone - or startLookup not updating global var
-  https://developers.google.com/apps-script/guides/html/reference/run
-  Setting above aside for now, made it a indetermiate status bar
-
-Enhancements:  
---Set column widths?
---Translate which libraries retain - symbol -> library 
-        would mean mapping to library name - EAST could in theory use spreadsheet, 
-        others would need another api call, BUT could get you also opac link
+Possible Enhancements:  
+--Translate which libraries retain - symbol -> library, and catalog link -  would need another api call
 --Make get oclc from isbn feature? or 2nd column of isbn to test if oclc doesn't match? API doesn't support isbn lookup but could possible perhaps with bib search first
  --Add check for holdings or retentions on symbol - symbol input in sidebar  
-
-
 */
 /*=====================================================================================================*/
 /* Note: API target retained-holdings => current OCLC & who retains, does not return merged numbers */
-/* don't forget to turn off all the logging when done */
 /* adapted from:  https://github.com/suranofsky/tech-services-g-sheets-addon/blob/master/Code.gs */
  
 var HTTP_OPTIONS = {muteHttpExceptions: true}
 var apiService ;  // global used in multiple functions
 var OCLCurl = 'https://americas.discovery.api.oclc.org/worldcat/search/v2/' ;
-var ui = SpreadsheetApp.getUi();   // Or DocumentApp or FormApp. This in global scope.
-var percentDone = "3" ; // used for progress bar - at least trying
+var ui = SpreadsheetApp.getUi();   // global scope.
+var percentDone = "3" ; // used for progress bar - currently not working, using static 'working' bar
 
 function onOpen(e) { /* What should the add-on do when a document is opened */
   // the 'e' allows it to be closed later - https://developers.google.com/apps-script/guides/html/reference/host#close
-  ui.createMenu('Shared Print Lookup')
+      ui.createAddonMenu()
       .addItem('Search by OCLC #s', 'showSidebar')
-      //.addItem('Find OCLC from ISBN', 'showISBNbar')
       .addToUi();
 }
 
@@ -99,10 +81,11 @@ function startLookup(form) {
    } // end check for key and secret and is authorized
 
    var spreadsheet = SpreadsheetApp.getActive();
+   spreadsheet.setFrozenRows(1); // freeze the top row
    var dataTabName = form.searchForTab;
    var dataSheet = spreadsheet.getSheetByName(dataTabName);  
 
-   PropertiesService.getUserProperties().setProperty('percentDone', 2); //start at 2%
+   PropertiesService.getUserProperties().setProperty('percentDone', 2); //start at 2%, currently not using this
 
    var SPP = form.SPP;  
 
@@ -114,7 +97,7 @@ function startLookup(form) {
 
    var oclcsRange = dataSheet.getRange(2,1,lastRow-1); // read from A2 to-> lastRow-1:  getRange(row, column, numRows, numColumns)
    var numRows = oclcsRange.getNumRows();
-   var eastColumn = new Array(numRows); // store results for later writing to sheet
+   var sppColumn = new Array(numRows); // store results for later writing to sheet
    var retainersColumn = new Array(numRows); // store who retains
    var hathiColumn = new Array(numRows); // store results for later writing to sheet
    var hathiTitleColumn = new Array(numRows); // store Hathi Titles
@@ -177,18 +160,18 @@ if (startingRow < 2) {
         
           // check here which systems to check and do it!
         if (form.worldcatretentions) {  // this is the checkbox for WC retentions 
-          let [numbEASTHoldings, retainedBY, currentOCLC] = getEASTHoldings(oclc, SPP) ;
+          let [numbSPPHoldings, retainedBY, currentOCLC] = getSPPHoldings(oclc, SPP) ;
           // ui.alert(retainedBY);
 
-          if (numbEASTHoldings > 999999) {
-            eastColumn[x-1] = "" // API returned wacky number for holdings if invalid OCLC, this appears fixed now
+          if (numbSPPHoldings > 999999) {
+            sppColumn[x-1] = "" // API returned wacky number for holdings if invalid OCLC, this appears fixed now
             currentOCLCColumn[x-1] = "Invalid OCN"; 
             continue
           } else if (typeof retainedBY != "undefined") {
-            eastColumn[x-1] = numbEASTHoldings //array for updating sheet; x is 1, array index starts at 0
+            sppColumn[x-1] = numbSPPHoldings //array for updating sheet; x is 1, array index starts at 0
             retainersColumn[x-1] = retainedBY.join(',');
           } else {
-            eastColumn[x-1] = numbEASTHoldings //array for updating sheet; x is 1, array index starts at 0
+            sppColumn[x-1] = numbSPPHoldings //array for updating sheet; x is 1, array index starts at 0
             retainersColumn[x-1] = "";
           }// end else ifs for holdings > 999999
 
@@ -200,7 +183,7 @@ if (startingRow < 2) {
             if (usHoldingsColumn[x-1] == 'invalid oclc') {
               currentOCLC = "Invalid OCN";
               usHoldingsColumn[x-1] = "";
-              eastColumn[x-1] = "" ; // this is 0 from getEASTHoldings by virtue of API reporting 0 not ocn error
+              sppColumn[x-1] = "" ; // this is 0 from getSPPHoldings by virtue of API reporting 0 not ocn error
             } // end if usHoldings is invalid oclc
           } // end if WCData or WCHoldings
 
@@ -244,18 +227,14 @@ if (startingRow < 2) {
     lock.tryLock(30000)  //This method has no effect if the lock has already been acquired.https://developers.google.com/apps-script/reference/lock/lock
     
     if (form.hathi) {
-      //ui.alert(hathiColumn);
-      //updateSheetColumn(numRows, hathiColumn, "E", dataSheet) ; 
-      //updateSheetColumn(numRows, hathiIdColumn, "I", dataSheet) ; 
-      //updateSheetColumn(numRows, hathiTitleColumn, "J", dataSheet) ; 
       updateSheetColumn(startingRow, numRows, hathiColumn, "E", dataSheet) ; 
       updateSheetColumn(startingRow, numRows, hathiIdColumn, "I", dataSheet) ; 
       updateSheetColumn(startingRow, numRows, hathiTitleColumn, "J", dataSheet) ; 
     }
     if (form.ia)   {updateSheetColumn(startingRow, numRows, iaColumn, "F", dataSheet) ; }
 
-  if (form.worldcatretentions) { // this is the checkbox for EAST
-      updateSheetColumn(startingRow, numRows, eastColumn,        "C", dataSheet) ; 
+  if (form.worldcatretentions) { // this is the checkbox for SPP
+      updateSheetColumn(startingRow, numRows, sppColumn,        "C", dataSheet) ; 
       updateSheetColumn(startingRow, numRows, retainersColumn,   "D", dataSheet) ; 
       updateSheetColumn(startingRow, numRows, currentOCLCColumn, "B", dataSheet) ; 
       if (form.WCHoldings) {
@@ -268,6 +247,8 @@ if (startingRow < 2) {
   
     dataSheet.getRange("B1:K1").setValues(columnHeaders); // set column headers
     dataSheet.getRange("B1:K1").setFontWeight("bold");
+    dataSheet.getRange("B1:K1").setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+
 
     lock.releaseLock();
     } catch {
@@ -276,15 +257,13 @@ if (startingRow < 2) {
     }
   } // end try getting a lock and updating sheet
   catch { // catch failed lock
-    //Logger.log("Failed to get lock") ;
-    ui.alert("Failed to lock sheet - reload sheet and try again.") // not sure this is a good idea, slightly different error so I can tell where it happened
+    ui.alert("Failed to lock sheet - reload sheet and try again.") // slightly different error message for debugging where failed
     return ;
   }
 
-  // send email if requested (could do html email but have not coded https://blog.gsmart.in/google-apps-script-send-html-email/)
-  if (form.sendEmail) {
+ 
+  if (form.sendEmail) {// send plain generic email if requested ( html alternative https://blog.gsmart.in/google-apps-script-send-html-email/)
     var donetime = new Date();
-    //var emailAddress = "samato@blc.org";
     var emailAddress = form.emailAddress ;
     var emailPattern = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/;  
     if(emailPattern.test(emailAddress) == false) {
@@ -307,48 +286,35 @@ if (startingRow < 2) {
 } // end start lookup
 
 //===================================================================================================
-//function updateSheetColumn(rows, newValues, column, sheet) {  //https://developers.google.com/apps-script/guides/support/best-practices
 function updateSheetColumn(startingRow, rows, newValues, column, sheet) {  //https://developers.google.com/apps-script/guides/support/best-practices
-  //Logger.log(newValues) ;
-  //Logger.log(rows) ;
-  //ui.alert(rows-(startingRow-1)) // 4-(4-1) = 4-3 = 1
- numrowsremove = startingRow-2
-  //ui.alert(numrowsremove)
+
+numrowsremove = startingRow-2
 newValues.splice(0, numrowsremove);
-//ui.alert(newValues)
 
-    var formatColumn = sheet.getRange(column + ":" + column);
-    formatColumn.setNumberFormat("@"); // set column to be a text, not number, column - for merged OCLC numbers especially!
+var formatColumn = sheet.getRange(column + ":" + column);
+formatColumn.setNumberFormat("@"); // set column to be a text, not number, column - for merged OCLC numbers especially!
    
-    //var rangeRows = rows + 1 // number of rows to fetch 
-    var rangeRows = (rows-(startingRow-1)+1)  // number of rows to fetch 
-    //ui.alert(rangeRows)
-
-    //var sheetRange = column + "2:" + column + rangeRows ;
-    var sheetRange = column + startingRow + ":" + column + (rows + 1) ;
-         
-   // ui.alert(rows)
-    //ui.alert(sheetRange);
-    var allRange = sheet.getRange(sheetRange);// e.g. sheet.getRange("C2:C600") 
+var rangeRows = (rows-(startingRow-1)+1)  // number of rows to fetch 
+var sheetRange = column + startingRow + ":" + column + (rows + 1) ;
+var allRange = sheet.getRange(sheetRange);// e.g. sheet.getRange("C2:C600") 
     
-    var updateValues = [] ; // create new array for update [column][index]
-    for (counter = 0; counter < newValues.length; ++counter) {   updateValues[counter] = new Array(1); } ;
-    for (counter = 0; counter < newValues.length; ++counter) {    
-      if (typeof newValues[counter] == "undefined") { newValues[counter]= "";}
-      updateValues[counter][0] = newValues[counter];  
-  }  // end for counter < new values 
-    //Logger.log("updateValues: " + updateValues);
-    //ui.alert(updateValues)
-    allRange.setValues(updateValues) ; // actually update the sheet
+var updateValues = [] ; // create new array for update [column][index]
+for (counter = 0; counter < newValues.length; ++counter) {   updateValues[counter] = new Array(1); } ;
+
+for (counter = 0; counter < newValues.length; ++counter) {    
+  if (typeof newValues[counter] == "undefined") { newValues[counter]= "";}
+  updateValues[counter][0] = newValues[counter];  
+}  // end for counter < new values 
+
+allRange.setValues(updateValues) ; // actually update the sheet
    
 } // end updateSheetColumn
 
 //===================================================================================================
-
-function getEASTHoldings(oclc, SPP) {
+function getSPPHoldings(oclc, SPP) {
     // https://developers.google.com/apps-script/reference/url-fetch/url-fetch-app
     let ui = SpreadsheetApp.getUi();
-    let numberEASTHoldings = 0 ;
+    let numberSPPHoldings = 0 ;
     let retainedBy = [] ;
     let currentOCLC = "" ;
 
@@ -357,7 +323,6 @@ function getEASTHoldings(oclc, SPP) {
     }
    // should try/except this
      if (apiService.hasAccess()) { //      
-      //Logger.log(service.getAccessToken());
       var url = OCLCurl + 'retained-holdings?oclcNumber=' + oclc + '&spProgram=' + SPP ;
       var response = UrlFetchApp.fetch(url, {
         headers: {
@@ -366,154 +331,42 @@ function getEASTHoldings(oclc, SPP) {
         validateHttpsCertificates: false,
         muteHttpExceptions: true
        });
-      //Logger.log(response)
 
      ////CHECK RESPONSE HEADER NOT 403 or 404  //Logger.log(response.getHeaders()); //Logger.log(response.getContentText());
-     //Logger.log(response)
      if(response.getResponseCode() != 200) { // not 200
-       //Logger.log(response.getResponseCode());
-          numberEASTHoldings = "";
+          numberSPPHoldings = "";
           retainedBy = [];
           currentOCLC = "Server Error: " + response.getResponseCode() ;
      } else { //valid response
           var results = JSON.parse(response.getContentText());
-          //Logger.log(results);
 
           if (results.numberOfHoldings) {
-            //Logger.log("results.numberofHoldings: " + results.numberOfHoldings);
-            numberEASTHoldings = results.numberOfHoldings;
-
-            for (lib in results.detailedHoldings) {
-/*
+            /*
 {detailedHoldings=[{format=zu, lhrLastUpdated=20210215, sharedPrintCommitments=[{actionNote=committed to retain, dateOfAction=20160630, commitmentExpirationDate=20310630, authorization=EAST, institution=MBU}], lhrControlNumber=352397802, lhrDateEntered=20210215, location={sublocationCollection=BOSS, holdingLocation=BOS}, hasSharedPrintCommitment=Y, summary=Local Holdings Available., oclcNumber=123456}], numberOfHoldings=1.0} 
-
-Occasionaly see results with no holdingLocaion and "lhrControlNumber": "UnavailableLHR352140713",
-was giving TypeError: Cannot read property 'holdingLocation' of undefined
 */
-              //Logger.log(results.detailedHoldings[lib].location.holdingLocation);  
+            //numberSPPHoldings = results.numberOfHoldings; // will be wrong if multple lhrs for same symbol
+            for (lib in results.detailedHoldings) {
+
+             /*Occasionaly see results with no holdingLocaion and "lhrControlNumber": "UnavailableLHR352140713",*/
               if (!results.detailedHoldings[lib].lhrControlNumber.startsWith("Unavailable")) {  
                 retainedBy.push(results.detailedHoldings[lib].location.holdingLocation); //  holdings symbol
-              } else if (numberEASTHoldings > 0) { // else you should decrement the number of holdings
-                --numberEASTHoldings
+              } else if (numberSPPHoldings > 0) { // else you should decrement the number of holdings, as one of them is Unavailable/bad
+                --numberSPPHoldings
               }
             } // end foreach results.detailedHoldings (LHRs)
             
-            //ui.alert("EAST: " + numberEASTHoldings); 
+            //ui.alert("SPP: " + numberSPPHoldings); 
             //Logger.log("results.detailedHoldings[0].oclcNumber: "+ results.detailedHoldings[0].oclcNumber);
             currentOCLC = results.detailedHoldings[0].oclcNumber
           }
      } // end else valid response
-    } // end apiService.hasAccess 
-       //Logger.log(apiService.getLastError());
-    return [numberEASTHoldings, retainedBy, currentOCLC] ;
-} // end getEASTHoldings
-
-//===================================================================================================
- 
-function getHathiHoldingsMerged(oclc, merged) { //https://catalog.hathitrust.org/api/volumes/brief/oclc/14219719.json
-  // local variables:
-  var hathiurl = "http://catalog.hathitrust.org/api/volumes/brief/oclc/" +  oclc +  ".json"
-
-  try {
-    var response = JSON.parse(UrlFetchApp.fetch(hathiurl).getContentText());
-    var rights = "" ;
-    var recordurl = "" ;
-    var r = "";
-    var htid = "" ;
-    var htitle = "" ;
-    //Logger.log(response);
-    //Logger.log("type of response: " + typeof response.items[0]) ;
-
-    if (typeof response.items[0] == "undefined") {
-      if (merged && merged.length > 0) { // there are alt oclc numbers
-        for (altNumb in merged) {
-          //Logger.log("altNumb: " + altNumb + " Merged: " + merged + " typeof: " + typeof merged + " len: " + merged.length);
-          //Logger.log(merged[altNumb]);
-            hathiurl = "http://catalog.hathitrust.org/api/volumes/brief/oclc/" +  merged[altNumb] +  ".json"
-            response = JSON.parse(UrlFetchApp.fetch(hathiurl,HTTP_OPTIONS).getContentText());
-              if (typeof response.items[0] != "undefined") {
-                //Logger.log("type of response alt: " + typeof response.items[0]) ;
-                break;
-              } // if got response break to outer
-       } // end for altNumb in merged
-     } // end if merged numbers
-    }// end if undefined response
-  
-  
-    if   (typeof response.items[0] != "undefined") { // make sure you got something
-      r = response.items[0].usRightsString ;
-      htid = response.items[0].htid
-      //  pubdate   = response.records[Object.keys(response.records)[0]].publishDates;  //yes
-      //  recordurl = response.records[Object.keys(response.records)[0]].recordURL // this works too  
-     htitle = response.records[Object.keys(response.records)[0]].titles[0];
-     //Logger.log(hathiurl);
-     //Logger.log(htitle);
-     recordurl = "https://catalog.hathitrust.org/Record/" + response.items[0].fromRecord  ;
-     rights = '=hyperlink("' + recordurl +  '","' + r + '")';    
-    }
-
-  } // end try
-  catch(err) {
-    rights = err;
-    htid = ""
-    htitle = ""
-  }
- 
-  //return rights ;
-  return [rights, htid, htitle] ;
-}// end get HathiHoldings  
-//===================================================================================================
-
-function getIAHoldingsMerged(oclc, merged) { 
-  // https://archive.org/advancedsearch.php?q=oclc-id%3A31773958&fl%5B%5D=licenseurl&sort%5B%5D=&sort%5B%5D=&sort%5B%5D=&rows=50&page=1&output=json&callback=callback
-  // https://archive.org/advancedsearch.php?q=oclc-id:31773958
-  // https://archive.org/advancedsearch.php?q=oclc-id:31773958&fl[]=identifier&output=json // this one clean!
-  // https://archive.org/advancedsearch.php?q=oclc-id%3A31773958&fl%5B%5D=licenseurl&sort%5B%5D=&sort%5B%5D=&sort%5B%5D=&rows=50&page=1&fl%5B%5D=identifier&output=json
-  
-  // local variables:
-  //var iaurl = "https://archive.org/advancedsearch.php?q=oclc-id%3A" +  oclc +  "&fl%5B%5D=licenseurl,identifier&sort%5B%5D=&sort%5B%5D=&sort%5B%5D=&rows=50&page=1&output=json"
-  var iaurl = "https://archive.org/advancedsearch.php?q=oclc-id:" + oclc + "&fl[]=identifier&output=json"
-  var iaholdings = ""
- // var response = JSON.parse(UrlFetchApp.fetch(iaurl).getContentText());
-  
-  try {
-   var r =  UrlFetchApp.fetch(iaurl);
-    //Logger.log("OCLC: " + oclc + "iaurl: " + iaurl);
- 
-   // Logger.log(r.getResponseCode());
-
-   // PUT TRY CATCH HERE!??
-   var response = JSON.parse(r.getContentText()) ;
-   //Logger.log("IA Response: " + response);
-   if (response) {
-   if  (response.response.numFound == 0 ) {
-     if (typeof merged !== 'undefined') {
-
-      if (merged.length > 0) { // there are alt oclc numbers
-       for (altNumb in merged) {
-         iaurl = "https://archive.org/advancedsearch.php?q=oclc-id%3A" +  merged[altNumb] +  "&fl%5B%5D=licenseurl,identifier&sort%5B%5D=&sort%5B%5D=&sort%5B%5D=&rows=50&page=1&output=json"
-          response = JSON.parse(UrlFetchApp.fetch(iaurl,HTTP_OPTIONS).getContentText());
-          // response = JSON.parse(UrlFetchApp.fetch(iaurl,HTTP_OPTIONS).getResponseCode);
-          if (response.response.numFound > 0) { // probably should use more error checking here
-             break;
-          } // if got response break to outer
-        } // end for altNumb in merged
-      } // end if merged numbers
-     } // end if merged defined
-   } // end if numFound == 0
-  
-   if (response.response.numFound > 0) { // make sure you got something
-     var id = response.response.docs[0].identifier ;
-     var recordurl = "https://archive.org/details/" + id  ;
-     var iaholdings = '=hyperlink("' + recordurl +  '","' + id + '")';    
-   } // end response > 0
-   } // end if response.response
-  } catch(err) {
-    iaholdings = err
-  }
- 
-  return iaholdings ;
-}// end get HathiHoldings  
+    } // end apiService.hasAccess //Logger.log(apiService.getLastError());
+    
+    ////dedup retainedBy - some ocns have muliple LHRs for the same title, e.g. volume, e.g. 47118284 symbol PBU
+    retainedBy = Array.from(new Set(retainedBy)) 
+    numberSPPHoldings = retainedBy.length
+    return [numberSPPHoldings, retainedBy, currentOCLC] ;
+} // end getSPPHoldings
 
 //===================================================================================================  
 function getWorldCatHoldings(oclc, edition) {
@@ -535,14 +388,11 @@ function getWorldCatHoldings(oclc, edition) {
        validateHttpsCertificates: false,
               muteHttpExceptions: true
      });
-     //Logger.log(url2)
-     //Logger.log(response2)
+
      if(response2.getResponseCode() != 200) {
-       //Logger.log(response2.getResponseCode());
        return  response2.getResponseCode() ;
      } else {
        var result2 = JSON.parse(response2.getContentText());
-       //Logger.log(result2);
        if (result2.numberOfRecords > 0) {
         var otitle = result2.briefRecords[0].title ;
         var CurrentOCN = result2.briefRecords[0].oclcNumber ;
@@ -564,10 +414,7 @@ function getWorldCatHoldings(oclc, edition) {
   } // end get worldcat holdings
 
 //===================================================================================================  
-function getPercentDone() {
-  //Logger.log("PD:" + percentDone);
-  //Logger.log("PD property: " + PropertiesService.getUserProperties().getProperty('percentDone'));
-  //ui.alert("PD: " + percentDone)
+function getPercentDone() { // never got this working - if any has ideas would love to hear them
   //ui.alert("PD Property: " + PropertiesService.getUserProperties().getProperty('percentDone')); // this seems to always be 100 when we get here
   return PropertiesService.getUserProperties().getProperty('percentDone');
 
@@ -586,8 +433,7 @@ function getApiService() {  //https://github.com/gsuitedevs/apps-script-oauth2/b
   return OAuth2.createService('WorldCat Discovery API')
       .setPropertyStore(PropertiesService.getUserProperties()) // use cache as per advice in https://github.com/gsuitedevs/apps-script-oauth2
       .setCache(CacheService.getUserCache())
-      // Set the endpoint URLs.
-      .setTokenUrl('https://oauth.oclc.org/token')
+      .setTokenUrl('https://oauth.oclc.org/token')      // Set the endpoint URLs.
 
       // Set the client ID and secret.
       .setClientId(myKey)
@@ -595,7 +441,6 @@ function getApiService() {  //https://github.com/gsuitedevs/apps-script-oauth2/b
 
       // Sets the custom grant type to use.
       .setGrantType('client_credentials')
-      //.setScope('DISCOVERY')
       .setScope('wcapi')
       // Set the property store where authorized tokens should be persisted.
       .setPropertyStore(PropertiesService.getUserProperties());
