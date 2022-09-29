@@ -13,7 +13,7 @@ Given column A of OCLC numbers:
 Possible Enhancements:  
 --Translate which libraries retain - symbol -> library, and catalog link -  would need another api call
 --Make get oclc from isbn feature? or 2nd column of isbn to test if oclc doesn't match? API doesn't support isbn lookup but could possible perhaps with bib search first
- --Add check for holdings or retentions on symbol - symbol input in sidebar  
+ --Add check for holdings or retentions on symbol - symbol input in sidebar   
 */
 /*=====================================================================================================*/
 /* Note: API target retained-holdings => current OCLC & who retains, does not return merged numbers */
@@ -31,6 +31,10 @@ function onOpen(e) { /* What should the add-on do when a document is opened */
       .addItem('Search by OCLC #s', 'showSidebar')
       .addToUi();
 }
+
+function onInstall() {
+  onOpen();
+} 
 
 function showSidebar() {
   var html = HtmlService.createHtmlOutputFromFile('sidebar')
