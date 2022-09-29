@@ -10,6 +10,8 @@ Caveats:
 Overwrites columns B-K
 App Script has a 6 minute timeout
 
+v.12
+
 ---
 Many thanks to [MatchMARC](https://github.com/suranofsky/tech-services-g-sheets-addon) for providing an excellent example. Much code borrowed from them.  
 
