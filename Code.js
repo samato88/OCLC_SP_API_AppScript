@@ -2,7 +2,6 @@
 Check HathiTrust and/or Internet Archives for holdings and OCLC for Shared Print registrations
 Searches limited to 1000 row, otherwise gives warning
 OCNs must be in column A, overwrites columns B-K
-
 Given column A of OCLC numbers:
 1)  Hathi - Access level in column E, ID in I, title in J
 2)  IA - Colummn F  
@@ -10,7 +9,8 @@ Given column A of OCLC numbers:
 4)  OCLC for current number, retrieve merged numbers  B, H
 5)  OCLC holdings in column G, title in K
 
-Possible Enhancements:  
+Possible Enhancements: 
+--How to catch: Error	"Exceeded maximum execution time" 
 --Translate which libraries retain - symbol -> library, and catalog link -  would need another api call
 --Make get oclc from isbn feature? or 2nd column of isbn to test if oclc doesn't match? API doesn't support isbn lookup but could possible perhaps with bib search first
  --Add check for holdings or retentions on symbol - symbol input in sidebar   

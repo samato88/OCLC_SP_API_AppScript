@@ -7,10 +7,10 @@ Sheet must have OCLC numbers in column A, and the first row of the sheet is rese
 API Key and Secret
 
 Caveats:
-Overwrites columns B-K
+Overwrites columns B-K, depending on what search options selected
 App Script has a 6 minute timeout
 
-v.12
+v.13
 
 ---
 Many thanks to [MatchMARC](https://github.com/suranofsky/tech-services-g-sheets-addon) for providing an excellent example. Much code borrowed from them.  
