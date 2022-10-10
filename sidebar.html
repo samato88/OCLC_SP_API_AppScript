@@ -21,7 +21,7 @@
 </head>
 
 <body bgcolor="#44546D">
-      <div class="sidebar">
+      <div class="sidebar" id="sidebarpanel">
          <form name="searchForm" id="searchForm">           
            <br>
            <span style="color:white"><b>Select tab that contains OCLCs in column A</b></span>
@@ -106,19 +106,23 @@
               </span>
          </div>
          <hr/>
-         <div class="block form-group">
+         <div class="block form-group" id="Start" >
               <input type="button" class="action" value="Start Search" onclick="startSearch()" />
-              <!--<input type="submit" class="action" value="Start Search"  /> onsubmit in form tag, but doesn't work right, not going to troubleshoot-->
+              <hr/>
          </div>
-         <hr/>
+         
     
 
       </form>
       <div id="Progress"style="color:white">
         Working...
         <div id="progressbar" class="white"></div>
+        <!--<div id="stop" class="block form-group" style="margin-top:5px">
+          <input type="button" class="action"  value="Cancel" onclick="stopSearch()">
+        </div>
+        -->
       </div>
-
+      <div id="Version" style="font-size:.85em; color:white; text-align:right"><p>Version 14</p></div>
      </div>
  
     <!-- Load the jQuery library from the Google CDN -->
@@ -132,6 +136,8 @@
       function done() {
        clearInterval(ProgVar);
        $( "#Progress" ).hide( );
+       $( "#Start" ).show( );
+
        var done = new Date();
        console.log("Google Script done time: " + done.toUTCString());
         
@@ -146,11 +152,11 @@
         //console.log(typeof percentDone);
         $( "#progressbar" ).progressbar( "option", "value", parseInt(percentDone) ); 
         //$( "#progressbar" ).progressbar( "option", "value", 80 ); 
-
-      }
+      } // end updateProgressBar
 
       function startSearch() {
-         $( "#Progress" ).show( );
+         $( "#Start" ).hide();
+         $( "#Progress" ).show();
          $( "#progressbar" ).progressbar({value: false}); // false gets you indeterminate bar, could also use number%
         // $( "#progressbar" ).progressbar({value: 2 }); //  use number%
         var now = new Date();
@@ -165,7 +171,7 @@
         //setInterval(test, 1000);
 
       } // end startSearch
-
+       
       //function test() { console.log("in test");}
     </script>
 
@@ -229,7 +235,12 @@
     $( "#sendEmail" ).click(function() {
        $( "#emailAddressbox" ).toggle();
     });
-
+ 
+    //$( "#sidebarpanel" ).mousemove(function( event ) {
+    $( "#sidebarpanel" ).mouseenter(function( event ) {
+       google.script.run.withSuccessHandler(showTabsInSidebar).getTabs(); 
+    });
+ 
     </script>
   </body>
 </html>
