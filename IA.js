@@ -1,7 +1,8 @@
 function getIAHoldingsMerged(oclc, merged) {
   var iaurl = "https://archive.org/advancedsearch.php?q=oclc-id:" + oclc + "&fl[]=identifier&output=json"
   var iaholdings = ""
-  
+  var count = 0
+
   try {
    var r =  UrlFetchApp.fetch(iaurl);
    var response = JSON.parse(r.getContentText()) ;
@@ -27,8 +28,19 @@ function getIAHoldingsMerged(oclc, merged) {
       var iaholdings = '=hyperlink("' + recordurl +  '","' + id + '")';    
     } // end response > 0
    } // end if response.response
-  } catch(err) {
-    iaholdings = err
+  } catch(err) { 
+
+      // retry address unavailable errors 3 times, then move on
+      //Exception: Address unavailable: https://archive.org/advancedsearch.php?q=oclc-id:1606080&fl[]=identifier&output=json
+      if(err.message.startsWith("Address unavailable: https://archive.org") && count < 3) {
+         Utilities.sleep(300) // brief pause to give api a break
+         Logger.log("IA Error on %s", err.message)
+         ++count
+         getIAHoldingsMerged(oclc, merged)
+      } else {
+    //iaholdings = err
+    iaholdings = "ERROR retrieving data"
+      }
   }
  
   return iaholdings ;
