@@ -8,9 +8,10 @@ API Key and Secret
 
 Caveats:
 Overwrites columns B-K, depending on what search options selected
-App Script has a 6 minute timeout
+App Script has a 6 minute timeout for free accounts, 30 minute timeout for corporate accounts. This script will currently silently fail upon timeout, so do small batches!!
+Hoping to fix this up a bit in the next version. 
 
-v.13
+v.14
 
 ---
 Many thanks to [MatchMARC](https://github.com/suranofsky/tech-services-g-sheets-addon) for providing an excellent example. Much code borrowed from them.  
