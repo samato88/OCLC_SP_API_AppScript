@@ -11,6 +11,7 @@ Given column A of OCLC numbers:
 
 Possible Enhancements: 
 --How to catch: Error	"Exceeded maximum execution time" 
+
 --Translate which libraries retain - symbol -> library, and catalog link -  would need another api call
 --Make get oclc from isbn feature? or 2nd column of isbn to test if oclc doesn't match? API doesn't support isbn lookup but could possible perhaps with bib search first
  --Add check for holdings or retentions on symbol - symbol input in sidebar   
@@ -48,7 +49,12 @@ function getTabs() {
     var out = new Array();
     var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
     for (var i=0 ; i<sheets.length ; i++) {
-       out.push( [ sheets[i].getName() ] );
+      // if name is the current active sheet, out.unshift rather than push, so it will be the selected tab
+      if (SpreadsheetApp.getActiveSheet().getName() == sheets[i].getName()) { // get name of current tab
+           out.unshift( [ sheets[i].getName() ] );
+       } else {
+           out.push( [ sheets[i].getName() ] );
+       }
     }
     return out;
 }
@@ -95,7 +101,7 @@ function startLookup(form) {
    var SPP = form.SPP;  
 
    var lastRow = dataSheet.getLastRow();   
-   if (lastRow > 1000) {
+   if (lastRow > 1000) { // can up this to 10000  to test timeout
       ui.alert("This script works best with under 1,000 rows. \nPlease try again with a shorter sheet");
       return;
    }
@@ -222,7 +228,7 @@ if (startingRow < 2) {
   } catch(err) {
      Logger.log(err);
      ui.alert(err); // will this catch Exceeded maximum execution time
-     // need to return here? it does write out what it got... but doesn't continue on
+     // need to return here?  write out what it got?... but doesn't continue on
    } // end catch
 
   // update sheet, would be faster to do as a multidimensional array
@@ -288,8 +294,8 @@ if (startingRow < 2) {
     } // end else is valid email pattern
   } // end if form sendEmail 
 
-   Logger.log('Script done');
-   PropertiesService.getScriptProperties().setProperty('run', 'done'); //leap of faith that above is synchronous
+   //Logger.log('Script done');
+   //PropertiesService.getScriptProperties().setProperty('run', 'done'); //leap of faith that above is synchronous
  
 
 } // end start lookup
