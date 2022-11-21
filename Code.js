@@ -71,9 +71,6 @@ function startLookup(form) {
    "use strict" ;
    var apiKey = form.apiKey; //MAKE SURE THE OCLC API KEY HAS BEEN ENTERED IF NEEDED
    var apiSecret = form.apiSecret; //MAKE SURE THE OCLC API SECRET HAS BEEN ENTERED IF NEEDED
-  
-   PropertiesService.getUserProperties().setProperty('apiKey', apiKey);
-   PropertiesService.getUserProperties().setProperty('apiSecret', apiSecret);
    
    if (form.worldcatretentions) { // if worldcat search box checked - check for key and secret and is authorized
        if ((apiKey == null || apiKey == "")) {
@@ -85,6 +82,8 @@ function startLookup(form) {
        }
        apiService = getApiService(); 
 
+       PropertiesService.getUserProperties().setProperty('apiKey', apiKey);
+       PropertiesService.getUserProperties().setProperty('apiSecret', apiSecret);
        if (!apiService.hasAccess()) {
          ui.alert("Invalid API Key or Secret.  Please re-enter or uncheck 'Retentions in OCLC' box") ;
          return
@@ -120,6 +119,11 @@ function startLookup(form) {
    var worldcatTitleColumn = new Array(numRows); // store worldcat title
    var edition = "" ;  // used to set header column with 'same' or 'any' edition
    var startingRow = form.startRow;
+   const startTime = new Date();
+   const maxRunTime = form.timelimit;
+
+   console.log(startTime);
+
 
 if (startingRow > lastRow) {
       ui.alert("Start search at row number is "+ startingRow + ", but this sheet only has " + lastRow.toString() + " Rows.\nPlease try again with a lower start row number");
@@ -143,7 +147,6 @@ if (startingRow < 2) {
     } // end if staringRow not null 
 
    for (x; x <= numRows; x++) { //FOR EACH ITEM TO BE LOOKED UP IN THE DATA SPREADSHEET:
-   // for (var x =1; x <= numRows; x++) { //FOR EACH ITEM TO BE LOOKED UP IN THE DATA SPREADSHEET:
       var oclcCell = oclcsRange.getCell(x,1);
       var merged = "" ;
       var htid = "" ;   
