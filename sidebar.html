@@ -194,7 +194,7 @@
            if (timerinterval < 10) { text = "0:0" + timerinterval }
            else if ( timerinterval < 60) { text = "0:" + timerinterval }
            else { 
-             min = Math.floor(i/60);
+              min = Math.floor(timerinterval/60);
               sec = timerinterval % 60;
               if (sec < 10) {sec = "0" + sec ; }
               text = min + ":" + sec ;
@@ -202,7 +202,7 @@
            document.getElementById("timeClock").innerHTML = text; 
             //$("#timeClock").html = text; 
             timerinterval++; 
-            if(i>timelimitselected) { $("#timer").css("background-color","red");}
+            if(timerinterval>timelimitselected) { $("#timer").css("background-color","red");}
         }, 1000); // end setInterval
 
         google.script.run

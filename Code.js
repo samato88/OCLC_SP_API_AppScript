@@ -242,8 +242,8 @@ if (startingRow < 2) {
   } catch(err) {
      Logger.log("Error at row " + str(x));
      Logger.log(err);
-     Logger.log(err.message);
-     ui.alert(err.message); // will this catch Exceeded maximum execution time
+     Logger.log(err.stack);
+     ui.alert(err.name + " , " + err.message); // will this catch Exceeded maximum execution time
      // need to return here?  write out what it got?... but doesn't continue on
    } // end catch
 
