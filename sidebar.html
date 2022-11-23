@@ -144,6 +144,8 @@
        $( "#Progress" ).hide( );
        $( "#Start" ).show( );
        clearInterval(IntervalID);
+       text=""; // clock time display  
+       timerinterval=1; // clock time display count interval - 1 second
 
        var done = new Date();
        console.log("Google Script done time: " + done.toUTCString());
@@ -167,33 +169,40 @@
          const iacb =  document.getElementById('ia') ;
          const hathicb = document.getElementById('hathi') ;
          const wccb = document.getElementById('worldcatretentions') ;
+         const timelimitselected = document.querySelector('input[name = "timelimit"]:checked').value;
+         var text="0:00";
+         var timerinterval ;
+
         if(!iacb.checked && !hathicb.checked && !wccb.checked) { // check if any search services are selected
             alert("Please select a search service to start");
             $( "#Start" ).show();
             return
          } // end if no search services are selected
 
-         $( "#Progress" ).show();
          $("#timer").css("background-color","#44546D"); // reset if had been red due to timeout
+         document.getElementById("timeClock").innerHTML = text; 
+
+         $( "#Progress" ).show();
+         
          $( "#progressbar" ).progressbar({value: false}); // false gets you indeterminate bar, could also use number%
         // $( "#progressbar" ).progressbar({value: 2 }); //  use number%
-        var now = new Date();
+        var now = new Date(); // keeping track of this here for ui and also in code.gs for execution time-can differ slightly, but not significantly
         console.log("Google Script start time: " + now.toUTCString());
-        i = 1; 
+        timerinterval = 1; 
         //setInterval(function () { $("#timeClock").html(i); i++; }, 1000);
         IntervalID = setInterval(function () { // hokey way to do this clock, and set global id to stop it later, else appears to be threading issue
-           if (i < 10) { text = "0:0" + i }
-           else if ( i < 60) { text = "0:" +i }
+           if (timerinterval < 10) { text = "0:0" + timerinterval }
+           else if ( timerinterval < 60) { text = "0:" + timerinterval }
            else { 
              min = Math.floor(i/60);
-              sec = i % 60;
+              sec = timerinterval % 60;
               if (sec < 10) {sec = "0" + sec ; }
               text = min + ":" + sec ;
            }
            document.getElementById("timeClock").innerHTML = text; 
             //$("#timeClock").html = text; 
-            i++; 
-            if(i>2) { $("#timer").css("background-color","red");}
+            timerinterval++; 
+            if(i>timelimitselected) { $("#timer").css("background-color","red");}
         }, 1000); // end setInterval
 
         google.script.run

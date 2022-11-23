@@ -69,6 +69,7 @@ function getStoredAPISecret() {
 //FUNCTION IS LAUNCHED WHEN THE 'START SEARCH' BUTTON ON THE SIDEBAR IS CLICKED //'form' REPRESENTS THE FORM ON THE SIDEBAR
 function startLookup(form) {
    "use strict" ;
+
    var apiKey = form.apiKey; //MAKE SURE THE OCLC API KEY HAS BEEN ENTERED IF NEEDED
    var apiSecret = form.apiSecret; //MAKE SURE THE OCLC API SECRET HAS BEEN ENTERED IF NEEDED
    
@@ -100,7 +101,7 @@ function startLookup(form) {
    var SPP = form.SPP;  
 
    var lastRow = dataSheet.getLastRow();   
-   if (lastRow > 1000) { // can up this to 10000  to test timeout
+   if (lastRow > 10000) { // can up this to 10,000  to test timeout
       ui.alert("This script works best with under 1,000 rows. \nPlease try again with a shorter sheet");
       return;
    }
@@ -147,6 +148,15 @@ if (startingRow < 2) {
     } // end if staringRow not null 
 
    for (x; x <= numRows; x++) { //FOR EACH ITEM TO BE LOOKED UP IN THE DATA SPREADSHEET:
+
+      let elapsed = Date.now() - startTime;
+      if (elapsed/1000 > maxRunTime-15) {
+      //if (elapsed/1000 >  15) { // just testing - quick turnaround
+        const stopTime = new Date();
+        console.log("Script stoped at: " + stopTime + " Total run time: " + elapsed/1000 + " seconds.");
+        break; // stop the loop if the maxRunTime has been reached, with a 15 second leeway
+        }
+
       var oclcCell = oclcsRange.getCell(x,1);
       var merged = "" ;
       var htid = "" ;   
@@ -161,9 +171,10 @@ if (startingRow < 2) {
           var oclc = oclcCell.getValue() ;
           if (isNaN(oclc)) { //test if NaN, if so, skip
               oclc = oclc.toString().toLowerCase(); 
-              if (oclc.startsWith("ocn") || oclc.startsWith("ocm")) { 
+              if (oclc.startsWith("ocn") || oclc.startsWith("ocm") || oclc.startsWith("on")) { 
                 oclc = oclc.replace("ocn", "");
                 oclc = oclc.replace("ocm", "");
+                oclc = oclc.replace("on", "");
               } else {
                 currentOCLCColumn[x-1] = "Invalid OCN"; 
                 continue ;
@@ -229,13 +240,15 @@ if (startingRow < 2) {
     } // end for each OCLC 
 
   } catch(err) {
+     Logger.log("Error at row " + str(x));
      Logger.log(err);
-     ui.alert(err); // will this catch Exceeded maximum execution time
+     Logger.log(err.message);
+     ui.alert(err.message); // will this catch Exceeded maximum execution time
      // need to return here?  write out what it got?... but doesn't continue on
    } // end catch
 
   // update sheet was inline here
-  updateSheet(form, startingRow, numRows, dataSheet, hathiColumn,hathiIdColumn, hathiTitleColumn, iaColumn, sppColumn, retainersColumn, currentOCLCColumn, usHoldingsColumn,mergedOCLCColumn, worldcatTitleColumn, columnHeaders)
+  updateSheet(form, startingRow, numRows, dataSheet, hathiColumn,hathiIdColumn, hathiTitleColumn, iaColumn, sppColumn, retainersColumn,       currentOCLCColumn, usHoldingsColumn,mergedOCLCColumn, worldcatTitleColumn, columnHeaders)
    //Logger.log('Script done');
    //PropertiesService.getScriptProperties().setProperty('run', 'done'); //leap of faith that above is synchronous 
 

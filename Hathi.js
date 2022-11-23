@@ -37,6 +37,7 @@ function getHathiHoldingsMerged(oclc, merged) { //https://catalog.hathitrust.org
 
   } // end try
   catch(err) {
+    console.log("Hathi Error: " + err)
     rights = err;
     htid = ""
     htitle = ""
