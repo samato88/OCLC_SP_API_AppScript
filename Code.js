@@ -1,7 +1,7 @@
 /* 
 Check HathiTrust and/or Internet Archives for holdings and OCLC for Shared Print registrations
-Searches limited to 1000 row, otherwise gives warning
-OCNs must be in column A, overwrites columns B-K
+Sheets limited to 10,000 row, otherwise gives warning. This is arbitrary.
+OCNs must be in column A, overwrites columns B-K (will warn if data exists)
 Given column A of OCLC numbers:
 1)  Hathi - Access level in column E, ID in I, title in J
 2)  IA - Colummn F  
@@ -10,12 +10,11 @@ Given column A of OCLC numbers:
 5)  OCLC holdings in column G, title in K
 
 Possible Enhancements: 
---How to catch: Error	"Exceeded maximum execution time" 
-
 --Translate which libraries retain - symbol -> library, and catalog link -  would need another api call
 --Make get oclc from isbn feature? or 2nd column of isbn to test if oclc doesn't match? API doesn't support isbn lookup but could possible perhaps with bib search first
  --Add check for holdings or retentions on symbol - symbol input in sidebar   
  --Add field for holdings in 583$3
+ --Add check for retentions by ALL programs
 */
 /*=====================================================================================================*/
 /* Note: API target retained-holdings => current OCLC & who retains, does not return merged numbers */
@@ -95,14 +94,23 @@ function startLookup(form) {
    spreadsheet.setFrozenRows(1); // freeze the top row
    var dataTabName = form.searchForTab;
    var dataSheet = spreadsheet.getSheetByName(dataTabName);  
+    
+    //SEA HERE - Check if active sheet the same as tab selected in form. getActiveSheet() 
+    if (SpreadsheetApp.getActiveSheet().getName() != dataTabName) { // if active sheet is not the same listed in the search form
+      //ui.alert(SpreadsheetApp.getActiveSheet().getName() + " is not " + dataTabName)
+      var responset = ui.alert("I noticed you are in the '" + SpreadsheetApp.getActiveSheet().getName() + "' tab, but the lookup tab is set to '" + dataTabName + "'.\nDo you want to continue with the lookup in " + dataTabName + "?", ui.ButtonSet.YES_NO);
+      if (responset === ui.Button.NO) { // https://code.luasoftware.com/tutorials/google-apps-script/google-apps-script-confirm-dialog/
+          return;
+        }
+    } // end if active tab not the same as tab in search form
 
    PropertiesService.getUserProperties().setProperty('percentDone', 2); //start at 2%, currently not using this
 
    var SPP = form.SPP;  
 
    var lastRow = dataSheet.getLastRow();   
-   if (lastRow > 10000) { // can up this to 10,000  to test timeout
-      ui.alert("This script works best with under 1,000 rows. \nPlease try again with a shorter sheet");
+   if (lastRow > 10000) { // Had this at 1000 before timeouts, now arbitrarily set at 10,000  
+      ui.alert("Sheets over 10,000 lines can be unwidely. \nPlease try again with a shorter sheet");
       return;
    }
 
@@ -160,10 +168,11 @@ if (startingRow < 2) {
         }
      } // end if checkForData finds data
       
+
    for (x; x <= numRows; x++) { //FOR EACH ITEM TO BE LOOKED UP IN THE DATA SPREADSHEET:
 
       let elapsed = Date.now() - startTime;
-      if (elapsed/1000 > maxRunTime-15) {
+      if (elapsed/1000 > maxRunTime-15) { // check if getting close to timeout
       //if (elapsed/1000 >  15) { // just testing - quick turnaround
         const stopTime = new Date();
         console.log("Script stoped at: " + stopTime + " Total run time: " + elapsed/1000 + " seconds.");
