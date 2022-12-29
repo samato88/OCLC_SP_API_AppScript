@@ -136,6 +136,7 @@ if (startingRow < 2) {
    }
 
    if (form.WCHoldings == true) {edition = "Any"} else { edition = "Same"} ;
+
    var columnHeaders = [["WorldCat OCLC", SPP + " Retentions", "Retained By Symbol", "Hathi", "IA", "US Holdings (" + edition + " edition) in WorldCat", "Merged OCLC numbers", 	"Hathi ID", "Hathi Title", "OCLC Title"]] ;
 
   try {// wondering if this will catch time outs - try/catch around all lookups -Nope.
@@ -147,67 +148,18 @@ if (startingRow < 2) {
       startingRow=2; // start at 2 for sheet update
     } // end if staringRow not null 
 
-//SEA HERE
-// Check for data in columns where output will be. 
-   if (form.worldcatretentions || form.hathi){
-     columnsToCheck.push("B", "C","D")
-     if (checkForData(dataSheet, columnsToCheck, startingRow, lastRow)) {
-       ui.alert("TRUE");
-        var response = ui.alert("There is data at or below row " + startingRow + " in column B, C and/or D that may be overwritten. Continue?", ui.ButtonSet.YES_NO);
+// Check for data in columns where output will be, alert if anything will be overwritten
+  if (form.worldcatretentions) { columnsToCheck.push("B", "C","D") } 
+  if (form.hathi) { columnsToCheck.push("E", "I","J")  }
+  if (form.ia){ columnsToCheck.push("F") }
+  if (checkForData(dataSheet, columnsToCheck, startingRow, lastRow)) {
+       var messageColumns = columnsToCheck.slice(0, -1).join(', ')+' and/or '+columnsToCheck.slice(-1);
+       var response = ui.alert("There is data at or below row " + startingRow + " in column(s):\n\n" + messageColumns + "\n\nthat may be overwritten. Continue?", ui.ButtonSet.YES_NO);
         if (response === ui.Button.NO) { // https://code.luasoftware.com/tutorials/google-apps-script/google-apps-script-confirm-dialog/
           return;
-     }
-     // var testValues = dataSheet.getRange(startingRow,2, lastRow-startingRow+1).getValues(); //getRange(row, column, numRows to return) - this gets B
-     // OCLC data goes in B, C, D, G, H, K. 
-     //https://support.google.com/docs/thread/164005111/getting-values-of-rangelist?hl=en
-
-   // need to do some iffing around here, can you abstract this to a separate function? e.g. checkForData(columns, startrow, lastrow)
- 
- /* this now in checkForData function
-   var testValues = dataSheet.getRangeList([ // OCLC retention data
-          'B'+startingRow+':B'+lastRow, 
-          'C'+startingRow+':C'+lastRow,
-          'D'+startingRow+':D'+lastRow,
-          ]).getRanges().map(range => [range.getValues()]); 
-  */ 
-/*
-    var testValues = dataSheet.getRangeList([
-          'B'+startingRow+':B'+lastRow, 
-          'C'+startingRow+':C'+lastRow,
-          'D'+startingRow+':D'+lastRow,
-          'G'+startingRow+':G'+lastRow,
-          'H'+startingRow+':H'+lastRow,
-          'K'+startingRow+':K'+lastRow
-          ]).getRanges().map(range => [range.getValues()]);  
-
-    var testValues = dataSheet.getRangeList([
-          'B'+startingRow+':B'+lastRow, 
-          'C'+startingRow+':C'+lastRow,
-          'D'+startingRow+':D'+lastRow,
-          'G'+startingRow+':G'+lastRow,
-          'H'+startingRow+':H'+lastRow,
-          'K'+startingRow+':K'+lastRow
-          ]).getRanges().map(range => [range.getValues()]);  
-*/
-      //ui.alert(testValues);  //ui.alert(JSON.stringify(testValues))
-     
-     /* this now in checkForData fuction and above
-      var flattened = testValues.flat(2) // flatten to an array to test
+        }
+     } // end if checkForData finds data
       
-      if (flattened.some(element => element != "")) { // true if data in cells that will be overwritten
-        var response = ui.alert("There is data at or below row " + startingRow + " in column B, C and/or D that may be overwritten. Continue?", ui.ButtonSet.YES_NO);
-        if (response === ui.Button.NO) { // https://code.luasoftware.com/tutorials/google-apps-script/google-apps-script-confirm-dialog/
-          return;
-        } // end if response yes
-        */
-      } // end if data in cells that will be overwritten
-             
-      //ui.alert(JSON.stringify(flattened)) // this also has same number of entries as getValues creates
-  } // end if form.worldcatretentions columns have data that will be overwritten. 
-//  if (form.hathi){}
-//  if (form.ai){}
-
-
    for (x; x <= numRows; x++) { //FOR EACH ITEM TO BE LOOKED UP IN THE DATA SPREADSHEET:
 
       let elapsed = Date.now() - startTime;
@@ -339,20 +291,22 @@ function getApiService() {  //https://github.com/gsuitedevs/apps-script-oauth2/b
       // Set the property store where authorized tokens should be persisted.
       .setPropertyStore(PropertiesService.getUserProperties());
 }
+
 //===================================================================================================
-function checkForData(dataSheetToCheck, columns, startline, endline) {
+function checkForData(dataSheetToCheck, columns, startline, endline) { // see if any data exists in ranges that will be overwritten
   let searchRange =[] ;
   for (letter of columns) {
       searchRange.push(letter + startline + ':' + letter + endline) ;
   }
   var testValues = dataSheetToCheck.getRangeList(searchRange).getRanges().map(range => [range.getValues()]);  
   var flattened = testValues.flat(2) // flatten to an array to test
-  if (flattened.some(element => element != "")) {
-    return 1;
+  if (flattened.some(element => element != "")) { // if there is data in any of the cells
+    return 1; // true, yes there is data
   } else {
-    return 0 ;
-  }
+    return 0 ; // false, no data in cells
+  } // end if data in flattened - not all cells are blank
 } // end checkForData
+
 //===================================================================================================    
 function reset() { // Reset the authorization state, so that it can be re-tested.
   getApiService().reset();
