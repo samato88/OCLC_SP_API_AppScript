@@ -21,7 +21,7 @@ Possible Enhancements:
 /* adapted from:  https://github.com/suranofsky/tech-services-g-sheets-addon/blob/master/Code.gs */
  
 var HTTP_OPTIONS = {muteHttpExceptions: true}
-var apiService ;  // global used in multiple functions
+var apiService ;  // global used in multiple functions (actually that might not be true)
 var OCLCurl = 'https://americas.discovery.api.oclc.org/worldcat/search/v2/' ;
 var ui = SpreadsheetApp.getUi();   // global scope.
 var percentDone = "3" ; // used for progress bar - currently not working, using static 'working' bar
@@ -71,7 +71,8 @@ function startLookup(form) {
 
    var apiKey = form.apiKey; //MAKE SURE THE OCLC API KEY HAS BEEN ENTERED IF NEEDED
    var apiSecret = form.apiSecret; //MAKE SURE THE OCLC API SECRET HAS BEEN ENTERED IF NEEDED
-   
+   PropertiesService.getUserProperties().setProperty('cancelscript', 'no'); // set to no, gets set to use if cancel in form hit
+
    if (form.worldcatretentions) { // if worldcat search box checked - check for key and secret and is authorized
        if ((apiKey == null || apiKey == "")) {
          ui.alert("OCLC API Key is Required for WorldCat lookups");
@@ -95,14 +96,12 @@ function startLookup(form) {
    var dataTabName = form.searchForTab;
    var dataSheet = spreadsheet.getSheetByName(dataTabName);  
     
-    //SEA HERE - Check if active sheet the same as tab selected in form. getActiveSheet() 
-    if (SpreadsheetApp.getActiveSheet().getName() != dataTabName) { // if active sheet is not the same listed in the search form
-      //ui.alert(SpreadsheetApp.getActiveSheet().getName() + " is not " + dataTabName)
+   if (SpreadsheetApp.getActiveSheet().getName() != dataTabName) { // if active sheet is not the same listed in the search form
       var responset = ui.alert("I noticed you are in the '" + SpreadsheetApp.getActiveSheet().getName() + "' tab, but the lookup tab is set to '" + dataTabName + "'.\nDo you want to continue with the lookup in " + dataTabName + "?", ui.ButtonSet.YES_NO);
       if (responset === ui.Button.NO) { // https://code.luasoftware.com/tutorials/google-apps-script/google-apps-script-confirm-dialog/
           return;
         }
-    } // end if active tab not the same as tab in search form
+   } // end if active tab not the same as tab in search form
 
    PropertiesService.getUserProperties().setProperty('percentDone', 2); //start at 2%, currently not using this
 
@@ -170,6 +169,11 @@ if (startingRow < 2) {
       
 
    for (x; x <= numRows; x++) { //FOR EACH ITEM TO BE LOOKED UP IN THE DATA SPREADSHEET:
+      //ui.alert(x + PropertiesService.getUserProperties().getProperty('cancelscript')); // did cancel get hit and make it here?
+      if(PropertiesService.getUserProperties().getProperty('cancelscript') =="yes") {
+        ui.alert("SCRIPT CANCELLED")
+        return
+     } // end if cancel
 
       let elapsed = Date.now() - startTime;
       if (elapsed/1000 > maxRunTime-15) { // check if getting close to timeout
@@ -315,7 +319,11 @@ function checkForData(dataSheetToCheck, columns, startline, endline) { // see if
     return 0 ; // false, no data in cells
   } // end if data in flattened - not all cells are blank
 } // end checkForData
-
+//===================================================================================================    
+function stopLookup() {
+  PropertiesService.getUserProperties().setProperty("cancelscript", "yes");
+  cancel = "YES" // change global cancel variable - this didn't seem to work
+}
 //===================================================================================================    
 function reset() { // Reset the authorization state, so that it can be re-tested.
   getApiService().reset();

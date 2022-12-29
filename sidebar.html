@@ -120,13 +120,12 @@
       <div id="Progress"style="color:white">
         Working...
         <div id="progressbar" class="white"></div>
-        <!--<div id="stop" class="block form-group" style="margin-top:5px">
-          <input type="button" class="action"  value="Cancel" onclick="stopSearch()">
-        </div>
-        -->
         <span id="timer">
         Script has been running for: <span id="timeClock">0:00</span>
         </timer>
+         <div id="stop" class="block form-group" style="margin-top:5px">
+          <input type="button" class="action"  value="Cancel" onclick="stopSearch()">
+        </div>
       </div>
       <div id="Version" style="font-size:.85em; color:white; text-align:right"><p>Version 14</p></div>
      </div>
@@ -137,8 +136,7 @@
     <script src="//code.jquery.com/ui/1.12.1/jquery-ui.js"></script>    
 
     <script>
-
-
+      
       function done() {
        clearInterval(ProgVar);
        $( "#Progress" ).hide( );
@@ -149,7 +147,6 @@
 
        var done = new Date();
        console.log("Google Script done time: " + done.toUTCString());
-        
        // google.script.host.close(); // close the sidebar when done
       } // end function done
      
@@ -215,13 +212,17 @@
         //setInterval(test, 1000);
 
       } // end startSearch
-       
-      //function test() { console.log("in test");}
+
+      function stopSearch() {
+       google.script.run
+            .withSuccessHandler(done)
+            .stopLookup();  
+      } // end stopSearch
     </script>
 
     <script>
         // The code in this function runs when the sidebar page is loaded.
-        // get__ are a server side functions in Code.gs
+        // get..thing are a server side functions in Code.gs
         var ProgVar ; // set globally
         var IntervalID ; // for timelimit counter
 
