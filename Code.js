@@ -275,7 +275,7 @@ if (startingRow < 2) {
 
   // update sheet was inline here
   updateSheet(form, startingRow, numRows, dataSheet, hathiColumn,hathiIdColumn, hathiTitleColumn, iaColumn, sppColumn, retainersColumn,       currentOCLCColumn, usHoldingsColumn,mergedOCLCColumn, worldcatTitleColumn, columnHeaders)
-   //Logger.log('Script done');
+   Logger.log('Script done');
    //PropertiesService.getScriptProperties().setProperty('run', 'done'); //leap of faith that above is synchronous 
   return
 } // end start lookup
