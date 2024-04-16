@@ -4,14 +4,14 @@ This project is a Google Sheets Add-on for use by Shared Print programs. It uses
 
 Prerequisits:
 Sheet must have OCLC numbers in column A, and the first row of the sheet is reserved for headers.
-API Key and Secret for either the Searh or Metadata API
+API Key and Secret for either the Search or Metadata API v.2
 
 Caveats:
 Overwrites columns B-K, depending on what search options selected, you will receive a warning about this
 App Script has a 6 minute timeout for free accounts, 30 minute timeout for corporate accounts. This script will currently silently fail upon timeout, so do small batches!!
 Hoping to fix this up a bit in the next version. 
 
-v.18
+v.20
 
 ---
 Many thanks to [MatchMARC](https://github.com/suranofsky/tech-services-g-sheets-addon) for providing an excellent example. Much code borrowed from them.  
