@@ -64,6 +64,10 @@
                 </span>
                <table class="oclc-table">
                  <tr><td colspan="2"><b>OCLC API Key and Secret</b></td></tr>
+                 <tr><td colspan="2"> 
+                  Metadata API <input type="radio" id="metadata"   name="apitype" value="metadata"  onclick="resetKeys(this.value)" checked=true>
+                  Discovery API <input type="radio" id="discovery" name="apitype" value="discovery" onclick="resetKeys(this.value)">
+                 </td><tr>
                  <tr>
                    <td>Key:</td>
                   <td><input type="text" id="apiKey" name="apiKey" placeholder="api key" value=""/></td>
@@ -127,7 +131,7 @@
           <input type="button" class="action"  value="Cancel" onclick="stopSearch()">
         </div>
       </div>
-      <div id="Version" style="font-size:.85em; color:white; text-align:right"><p>Version 17</p></div>
+      <div id="Version" style="font-size:.85em; color:white; text-align:right"><p>Version 18</p></div>
      </div>
  
     <!-- Load the jQuery library from the Google CDN -->
@@ -222,25 +226,35 @@
 
     <script>
         // The code in this function runs when the sidebar page is loaded.
-        // get..thing are a server side functions in Code.gs
+        // get..things are a server side functions in Code.gs
         var ProgVar ; // set globally
         var IntervalID ; // for timelimit counter
 
         $( document ).tooltip(); 
 
         $(function() {
+           var radioButtonGroup = document.getElementsByName("apitype");
+           var checkedRadio = Array.from(radioButtonGroup).find((radio) => radio.checked);
+           //console.log(checkedRadio.value); // this is probably unnecessary since default is metadata
            google.script.run.withSuccessHandler(showTabsInSidebar).getTabs(); 
-           google.script.run.withSuccessHandler(setKey).getStoredAPIKey();
-           google.script.run.withSuccessHandler(setSKey).getStoredAPISecret();
+           google.script.run.withSuccessHandler(setKey).getStoredAPIKey(checkedRadio.value);
+           google.script.run.withSuccessHandler(setSKey).getStoredAPISecret(checkedRadio.value);
         }); // end function that runs on start
         
         function setKey(apiKey){
-          if (apiKey == null  || apiKey === undefined) apiKey = "";
+          if (apiKey == null  || apiKey === undefined ) { apiKey = "";}
+          //console.log("setKey: " + apiKey)
           document.getElementById('apiKey').value=apiKey;
         }
         function setSKey(apiSecret){
-          if (apiSecret == null  || apiSecret === undefined) apiSecret = "";
+          if (apiSecret == null  || apiSecret === undefined) { apiSecret = ""; }
           document.getElementById('apiSecret').value=apiSecret;
+        }
+
+        function resetKeys(apitype) {
+          //console.log(apitype);
+          google.script.run.withSuccessHandler(setKey).getStoredAPIKey(apitype);
+          google.script.run.withSuccessHandler(setSKey).getStoredAPISecret(apitype);
         }
       
         function showTabsInSidebar(tabs) { 

@@ -9,6 +9,11 @@ Given column A of OCLC numbers:
 4)  OCLC for current number, retrieve merged numbers  B, H
 5)  OCLC holdings in column G, title in K
 
+To Do:
+--add column for EAST Holders (not yet retained)
+
+April 2024: Added Metadata API key use rather than just discovery search API
+
 Possible Enhancements: 
 --Translate which libraries retain - symbol -> library, and catalog link -  would need another api call
 --Make get oclc from isbn feature? or 2nd column of isbn to test if oclc doesn't match? API doesn't support isbn lookup but could possible perhaps with bib search first
@@ -22,7 +27,7 @@ Possible Enhancements:
  
 var HTTP_OPTIONS = {muteHttpExceptions: true}
 var apiService ;  // global used in multiple functions (actually that might not be true)
-var OCLCurl = 'https://americas.discovery.api.oclc.org/worldcat/search/v2/' ;
+var OCLCurl = 'https://americas.discovery.api.oclc.org/worldcat/search/v2/' ; // this is if discovery key - might need to set elsewhere
 var ui = SpreadsheetApp.getUi();   // global scope.
 var percentDone = "3" ; // used for progress bar - currently not working, using static 'working' bar
 
@@ -58,17 +63,30 @@ function getTabs() {
     return out;
 }
 
-function getStoredAPIKey() {
-     return PropertiesService.getUserProperties().getProperty('apiKey')
+function getStoredAPIKey(apitype) {
+  if (apitype == "discovery") {
+    //Logger.log(apitype)
+    //Logger.log(PropertiesService.getUserProperties().getProperty('apiKey'))
+    return PropertiesService.getUserProperties().getProperty('apiKey')
+  } else {
+    //Logger.log(apitype)
+    //Logger.log(PropertiesService.getUserProperties().getProperty('mapiKey'))
+    return PropertiesService.getUserProperties().getProperty('mapiKey')
+  }
 }
-function getStoredAPISecret() {
-     return PropertiesService.getUserProperties().getProperty('apiSecret')
+
+function getStoredAPISecret(apitype) {
+  if (apitype == "discovery") {
+      return PropertiesService.getUserProperties().getProperty('apiSecret')
+  } else {
+      return PropertiesService.getUserProperties().getProperty('mapiSecret')
+  }
 }
 
 //FUNCTION IS LAUNCHED WHEN THE 'START SEARCH' BUTTON ON THE SIDEBAR IS CLICKED //'form' REPRESENTS THE FORM ON THE SIDEBAR
 function startLookup(form) {
    "use strict" ;
-
+   //ui.alert(form.apitype);
    var apiKey = form.apiKey; //MAKE SURE THE OCLC API KEY HAS BEEN ENTERED IF NEEDED
    var apiSecret = form.apiSecret; //MAKE SURE THE OCLC API SECRET HAS BEEN ENTERED IF NEEDED
    PropertiesService.getUserProperties().setProperty('cancelscript', 'no'); // set to no, gets set to use if cancel in form hit
@@ -81,10 +99,23 @@ function startLookup(form) {
          ui.alert("OCLC API Secret is Required for WorldCat lookups");
          return;
        }
-       apiService = getApiService(); 
+      
+      if (form.apitype == "discovery") {
+        apiService = getDiscoveryApiService(form.apitype); 
+      } else if (form.apitype == "metadata") {
+        apiService = getDiscoveryApiService(form.apitype); 
+      }
 
-       PropertiesService.getUserProperties().setProperty('apiKey', apiKey);
-       PropertiesService.getUserProperties().setProperty('apiSecret', apiSecret);
+      if (form.apitype == "discovery") {
+         //Logger.log("setting API Key " + apiKey)
+         PropertiesService.getUserProperties().setProperty('apiKey', apiKey);
+         PropertiesService.getUserProperties().setProperty('apiSecret', apiSecret);
+      } else if (form.apitype == "metadata")  {
+         //Logger.log("setting API Secret for " + form.apitype + ": " + apiSecret)
+         PropertiesService.getUserProperties().setProperty('mapiKey', apiKey); // save metadata api key
+         PropertiesService.getUserProperties().setProperty('mapiSecret', apiSecret); // save metadata api secret
+      }
+
        if (!apiService.hasAccess()) {
          ui.alert("Invalid API Key or Secret.  Please re-enter or uncheck 'Retentions in OCLC' box") ;
          return
@@ -281,13 +312,55 @@ if (startingRow < 2) {
 } // end start lookup
 //===================================================================================================  
 
-function getApiService() {  //https://github.com/gsuitedevs/apps-script-oauth2/blob/master/samples/TwitterAppOnly.gs
+function getApiService(apitype) {  //https://github.com/gsuitedevs/apps-script-oauth2/blob/master/samples/TwitterAppOnly.gs
                             //https://github.com/gsuitedevs/apps-script-oauth2
-  myKey = PropertiesService.getUserProperties().getProperty('apiKey')
-  mySecret = PropertiesService.getUserProperties().getProperty('apiSecret')  
 
+  if (apitype == "metadata") {
+    OCLCurl = "https://metadata.api.oclc.org/worldcat";
+    scope = "WorldCatMetadataAPI"
+    myKey = PropertiesService.getUserProperties().getProperty('mapiKey')
+    mySecret = PropertiesService.getUserProperties().getProperty('mapiSecret')  
+  } else { // discovery
+    OCLCurl = 'https://americas.discovery.api.oclc.org/worldcat/search/v2/' ;  
+    scope = "wcapi" ;
+    myKey = PropertiesService.getUserProperties().getProperty('apiKey')
+    mySecret = PropertiesService.getUserProperties().getProperty('apiSecret') 
+  }
+  
   //myKey = 'testingForFailure'
   //mySecret = 'testingForFailure'
+  Logger.log(PropertiesService.getUserProperties().getKeys());
+
+// this works but will use the wrong persisted token based if switching between metadata and discovery apis
+ return OAuth2.createService('WorldCat Discovery API')
+      .setPropertyStore(PropertiesService.getUserProperties()) // use cache as per advice in https://github.com/gsuitedevs/apps-script-oauth2
+      .setCache(CacheService.getUserCache())
+      .setTokenUrl('https://oauth.oclc.org/token')      // Set the endpoint URLs.
+
+      // Set the client ID and secret.
+      .setClientId(myKey)
+      .setClientSecret(mySecret)
+
+      // Sets the custom grant type to use.
+      .setGrantType('client_credentials')
+      .setScope(scope)
+      // Set the property store where authorized tokens should be persisted.
+      .setPropertyStore(PropertiesService.getUserProperties());
+      
+} // end get APIService
+
+function getDiscoveryApiService() {  //https://github.com/gsuitedevs/apps-script-oauth2/blob/master/samples/TwitterAppOnly.gs
+                            //https://github.com/gsuitedevs/apps-script-oauth2
+
+   
+    OCLCurl = 'https://americas.discovery.api.oclc.org/worldcat/search/v2/' ;  
+    scope = "wcapi" ;
+    myKey = PropertiesService.getUserProperties().getProperty('apiKey')
+    mySecret = PropertiesService.getUserProperties().getProperty('apiSecret') 
+ 
+  //myKey = 'testingForFailure'
+  //mySecret = 'testingForFailure'
+  Logger.log(PropertiesService.getUserProperties().getKeys());
 
   return OAuth2.createService('WorldCat Discovery API')
       .setPropertyStore(PropertiesService.getUserProperties()) // use cache as per advice in https://github.com/gsuitedevs/apps-script-oauth2
@@ -300,10 +373,40 @@ function getApiService() {  //https://github.com/gsuitedevs/apps-script-oauth2/b
 
       // Sets the custom grant type to use.
       .setGrantType('client_credentials')
-      .setScope('wcapi')
+      .setScope(scope)
       // Set the property store where authorized tokens should be persisted.
       .setPropertyStore(PropertiesService.getUserProperties());
-}
+      
+} // end get DiscoveryAPIService
+
+//===================================================================================================
+function getMetadataApiService() {  //https://github.com/gsuitedevs/apps-script-oauth2/blob/master/samples/TwitterAppOnly.gs
+                            //https://github.com/gsuitedevs/apps-script-oauth2
+    OCLCurl = "https://metadata.api.oclc.org/worldcat";
+    scope = "WorldCatMetadataAPI"
+    myKey = PropertiesService.getUserProperties().getProperty('mapiKey')
+    mySecret = PropertiesService.getUserProperties().getProperty('mapiSecret')  
+   
+  //myKey = 'testingForFailure'
+  //mySecret = 'testingForFailure'
+  Logger.log(PropertiesService.getUserProperties().getKeys());
+
+ return OAuth2.createService('WorldCat Metadata API')
+      .setPropertyStore(PropertiesService.getUserProperties()) // use cache as per advice in https://github.com/gsuitedevs/apps-script-oauth2
+      .setCache(CacheService.getUserCache())
+      .setTokenUrl('https://oauth.oclc.org/token')      // Set the endpoint URLs.
+
+      // Set the client ID and secret.
+      .setClientId(myKey)
+      .setClientSecret(mySecret)
+
+      // Sets the custom grant type to use.
+      .setGrantType('client_credentials')
+      .setScope(scope)
+      // Set the property store where authorized tokens should be persisted.
+      .setPropertyStore(PropertiesService.getUserProperties());
+      
+} // end get MetaAPIService
 
 //===================================================================================================
 function checkForData(dataSheetToCheck, columns, startline, endline) { // see if any data exists in ranges that will be overwritten
@@ -326,7 +429,8 @@ function stopLookup() {
 }
 //===================================================================================================    
 function reset() { // Reset the authorization state, so that it can be re-tested.
-  getApiService().reset();
+  var service = getAPIService(); // https://github.com/googleworkspace/apps-script-oauth2
+  service.reset();
 }
 //===================================================================================================    
 function getPercentDone() { // never got this working - if any has ideas would love to hear them
