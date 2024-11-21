@@ -27,7 +27,7 @@ function getSPPHoldings(oclc, SPP) {
      } else { //valid response
           var results = JSON.parse(response.getContentText());
 
-          if (results.numberOfHoldings) {
+          if (results.numberOfHoldings) {// NEED TO ADD A CHECK IN HERE - SOMETIMES "numberOfHoldings": 1 but no detailed holdings (oclc API glitch)
             /*
 {detailedHoldings=[{format=zu, lhrLastUpdated=20210215, sharedPrintCommitments=[{actionNote=committed to retain, dateOfAction=20160630, commitmentExpirationDate=20310630, authorization=EAST, institution=MBU}], lhrControlNumber=352397802, lhrDateEntered=20210215, location={sublocationCollection=BOSS, holdingLocation=BOS}, hasSharedPrintCommitment=Y, summary=Local Holdings Available., oclcNumber=123456}], numberOfHoldings=1.0} 
 */
@@ -44,6 +44,7 @@ function getSPPHoldings(oclc, SPP) {
             
             //ui.alert("SPP: " + numberSPPHoldings); 
             //Logger.log("results.detailedHoldings[0].oclcNumber: "+ results.detailedHoldings[0].oclcNumber);
+            // NEED TO ADD A CHECK IN HERE - SOMETIMES "numberOfHoldings": 1 but no detailed holdings (oclc API glitch)
             currentOCLC = results.detailedHoldings[0].oclcNumber
           }
      } // end else valid response

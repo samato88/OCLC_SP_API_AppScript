@@ -354,7 +354,14 @@ function getDiscoveryApiService() {  //https://github.com/gsuitedevs/apps-script
 
    
     OCLCurl = 'https://americas.discovery.api.oclc.org/worldcat/search/v2/' ;  
-    scope = "wcapi" ;
+    scope = "wcapi" ;  //scope = ['wcapi:view_retained_holdings', 'wcapi:view_summary_holdings', 'wcapi:view_institution_holdings', 'wcapi:view_holdings' ] 
+/* wondering if at some point will need finer scopes, here's an example. The Python version did need finer scopes
+      .setScope([
+        "https://www.googleapis.com/auth/spreadsheets.currentonly",
+        "https://www.googleapis.com/auth/script.external_request",
+        "https://www.googleapis.com/auth/cloud-platform"
+      ]);
+*/
     myKey = PropertiesService.getUserProperties().getProperty('apiKey')
     mySecret = PropertiesService.getUserProperties().getProperty('apiSecret') 
  
