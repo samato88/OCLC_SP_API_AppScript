@@ -40,7 +40,7 @@ function updateSheet(form, startingRow, numRows, dataSheet, hathiColumn,hathiIdC
     return ;
   }
 
- 
+ /* removing this Jan 2025 since some universities won't approve add ons that ask for email scope
   if (form.sendEmail) {// send plain generic email if requested ( html alternative https://blog.gsmart.in/google-apps-script-send-html-email/)
     var donetime = new Date();
     var emailAddress = form.emailAddress ;
@@ -61,7 +61,7 @@ function updateSheet(form, startingRow, numRows, dataSheet, hathiColumn,hathiIdC
       } // end catch email
     } // end else is valid email pattern
   } // end if form sendEmail 
-
+*/
 }
 //===================================================================================================
 function updateSheetColumn(startingRow, rows, newValues, column, sheet) {  //https://developers.google.com/apps-script/guides/support/best-practices
