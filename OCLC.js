@@ -27,7 +27,7 @@ function getSPPHoldings(oclc, SPP) {
      } else { //valid response
           var results = JSON.parse(response.getContentText());
 
-          if (results.numberOfHoldings) {// NEED TO ADD A CHECK IN HERE - SOMETIMES "numberOfHoldings": 1 but no detailed holdings (oclc API glitch)
+          if (results.numberOfHoldings && results.detailedHoldings) {// SOMETIMES "numberOfHoldings": 1 but no detailed holdings (oclc API glitch)
             /*
 {detailedHoldings=[{format=zu, lhrLastUpdated=20210215, sharedPrintCommitments=[{actionNote=committed to retain, dateOfAction=20160630, commitmentExpirationDate=20310630, authorization=EAST, institution=MBU}], lhrControlNumber=352397802, lhrDateEntered=20210215, location={sublocationCollection=BOSS, holdingLocation=BOS}, hasSharedPrintCommitment=Y, summary=Local Holdings Available., oclcNumber=123456}], numberOfHoldings=1.0} 
 */
@@ -45,8 +45,14 @@ function getSPPHoldings(oclc, SPP) {
             //ui.alert("SPP: " + numberSPPHoldings); 
             //Logger.log("results.detailedHoldings[0].oclcNumber: "+ results.detailedHoldings[0].oclcNumber);
             // NEED TO ADD A CHECK IN HERE - SOMETIMES "numberOfHoldings": 1 but no detailed holdings (oclc API glitch)
-            currentOCLC = results.detailedHoldings[0].oclcNumber
-          }
+              currentOCLC = results.detailedHoldings[0].oclcNumber
+            } // end for lib in results.detailedHoldings
+          else { // SEA HERE - FIX UP RESPONSE SO THAT CLEAR API had error in holdings - e.g. 23853547
+            //ui.alert("ERROR")
+            //return ["", ["OCLC API ERROR"], ""]; // throw an error or assume zero retentions? 
+            return["0",[], oclc]
+            currentOCLC = "API ERROR"
+            }
      } // end else valid response
     } // end apiService.hasAccess //Logger.log(apiService.getLastError());
     
